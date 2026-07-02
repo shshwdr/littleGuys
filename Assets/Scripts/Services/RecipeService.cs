@@ -30,6 +30,10 @@ public class RecipeService
             zone.InputBuffer = 0;
             zone.OutputBuffer = 0;
             zone.TaskProgress.Value = 0f;
+            zone.Phase = ZonePhase.Idle;
+            zone.DeliveryCustomer = null;
+            zone.HasSharedItem = false;
+            zone.SharedItemStage = FoodStage.None;
         }
     }
 
@@ -47,6 +51,10 @@ public class RecipeService
             zone.TaskProgress.Value = 0f;
             zone.WorkSpeed.Value = 0f;
             zone.StatusText.Value = "0%";
+            zone.Phase = ZonePhase.Idle;
+            zone.DeliveryCustomer = null;
+            zone.HasSharedItem = false;
+            zone.SharedItemStage = FoodStage.None;
         }
     }
 }

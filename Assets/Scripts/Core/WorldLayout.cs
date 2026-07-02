@@ -48,4 +48,54 @@ public class WorldLayout
         float startX = center.x - totalWidth * 0.5f;
         return new Vector2(startX + index * config.workerSpacing, center.y);
     }
+
+    public Vector2 GetSourceFetchPosition(ZoneType workZone, int index, int total)
+    {
+        Vector2 pileCenter = GetSourcePilePosition(workZone);
+        pileCenter.y -= config.sourceFetchOffsetY;
+
+        if (total <= 1)
+            return pileCenter;
+
+        float totalWidth = (total - 1) * config.workerSpacing;
+        float startX = pileCenter.x - totalWidth * 0.5f;
+        return new Vector2(startX + index * config.workerSpacing, pileCenter.y);
+    }
+
+    public Vector2 GetLiftWorkerPosition(Vector2 objectCenter, int index, int total)
+    {
+        float workerY = objectCenter.y - config.carryYOffset;
+        if (total <= 1)
+            return new Vector2(objectCenter.x, workerY);
+
+        float totalWidth = (total - 1) * config.workerSpacing;
+        float startX = objectCenter.x - totalWidth * 0.5f;
+        return new Vector2(startX + index * config.workerSpacing, workerY);
+    }
+
+    public Vector2 GetItemCenterAboveZone(ZoneType zone)
+    {
+        Vector2 center = GetZonePosition(zone);
+        return center + new Vector2(0f, config.carryYOffset * 0.5f);
+    }
+
+    public Vector2 GetSourceItemPosition(ZoneType workZone)
+    {
+        return GetSourcePilePosition(workZone) + new Vector2(0f, config.carryYOffset * 0.5f);
+    }
+
+    public Vector2 GetSourcePilePosition(ZoneType workZone)
+    {
+        switch (workZone)
+        {
+            case ZoneType.Chop:
+                return IngredientPos + new Vector2(0f, 0.5f);
+            case ZoneType.Cook:
+                return ChopPos + new Vector2(0f, 0.5f);
+            case ZoneType.Plate:
+                return CookPos + new Vector2(0f, 0.5f);
+            default:
+                return GetZonePosition(workZone);
+        }
+    }
 }

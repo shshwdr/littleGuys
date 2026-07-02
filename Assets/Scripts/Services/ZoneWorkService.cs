@@ -26,49 +26,27 @@ public class ZoneWorkService
     void UpdateZone(ZoneType type, float dt)
     {
         var zone = model.GetZone(type);
-        if (!zone.HasActiveStep)
+        if (!zone.HasActiveStep || zone.Phase != ZonePhase.Working)
             return;
 
-        int assignedCount = zone.WorkerCount.Value;
-        zone.WorkSpeed.Value = model.Config.GetMoveSpeed(assignedCount);
+        int workerCount = model.Workers.Count(w => w.AssignedZone == type);
+        if (workerCount <= 0)
+            return;
 
-        int workersReady = CountWorkersReadyToWork(type);
-        if (zone.InputBuffer <= 0 || workersReady <= 0)
+        zone.WorkSpeed.Value = workerCount / zone.BaseDuration;
+        zone.TaskProgress.Value += (workerCount / zone.BaseDuration) * dt;
+
+        if (zone.TaskProgress.Value < 1f)
         {
             zone.StatusText.Value = $"{Mathf.RoundToInt(zone.TaskProgress.Value * 100f)}%";
             return;
         }
 
-        float workRate = workersReady / zone.BaseDuration;
-        zone.TaskProgress.Value += workRate * dt;
-
-        while (zone.TaskProgress.Value >= 1f && zone.InputBuffer > 0)
-        {
-            zone.TaskProgress.Value -= 1f;
-            zone.InputBuffer--;
-            zone.OutputBuffer++;
-        }
-
-        if (zone.TaskProgress.Value < 0f)
-            zone.TaskProgress.Value = 0f;
-
-        zone.StatusText.Value = $"{Mathf.RoundToInt(Mathf.Clamp01(zone.TaskProgress.Value) * 100f)}%";
-    }
-
-    public int CountArrivedWorkers(ZoneType type)
-    {
-        return model.Workers.Count(w =>
-            w.AssignedZone == type &&
-            w.HasArrivedAtZone &&
-            w.State != WorkerState.WalkingToZone);
-    }
-
-    public int CountWorkersReadyToWork(ZoneType type)
-    {
-        return model.Workers.Count(w =>
-            w.AssignedZone == type &&
-            w.HasArrivedAtZone &&
-            w.Carrying == FoodStage.None &&
-            w.State == WorkerState.Standing);
+        zone.TaskProgress.Value = 0f;
+        zone.OutputBuffer++;
+        zone.HasSharedItem = false;
+        zone.SharedItemStage = FoodStage.None;
+        zone.Phase = ZonePhase.Idle;
+        zone.StatusText.Value = "0%";
     }
 }

@@ -17,11 +17,11 @@ public class RecipePanelView : MonoBehaviour
         var panelGo = new GameObject("Panel");
         panelGo.transform.SetParent(canvasGo.transform, false);
         var panelRect = panelGo.AddComponent<RectTransform>();
-        panelRect.anchorMin = new Vector2(0.5f, 1f);
-        panelRect.anchorMax = new Vector2(0.5f, 1f);
-        panelRect.pivot = new Vector2(0.5f, 1f);
-        panelRect.anchoredPosition = new Vector2(0f, -20f);
-        panelRect.sizeDelta = new Vector2(420f, 80f);
+        panelRect.anchorMin = new Vector2(0.5f, 0f);
+        panelRect.anchorMax = new Vector2(0.5f, 0f);
+        panelRect.pivot = new Vector2(0.5f, 0f);
+        panelRect.anchoredPosition = new Vector2(0f, 20f);
+        panelRect.sizeDelta = new Vector2(420f, 40f);
 
         var bg = panelGo.AddComponent<Image>();
         bg.color = new Color(0f, 0f, 0f, 0.55f);
@@ -32,19 +32,19 @@ public class RecipePanelView : MonoBehaviour
         buttonGo.transform.SetParent(panelGo.transform, false);
         var buttonRect = buttonGo.AddComponent<RectTransform>();
         buttonRect.anchoredPosition = new Vector2(120f, 0f);
-        buttonRect.sizeDelta = new Vector2(160f, 50f);
+        buttonRect.sizeDelta = new Vector2(160f, 28f);
         var buttonImage = buttonGo.AddComponent<Image>();
         buttonImage.color = new Color(0.25f, 0.45f, 0.8f, 1f);
         var button = buttonGo.AddComponent<Button>();
 
         var label = WorldUiFactory.CreateText(buttonGo.transform, "Label", "Soup", Vector2.zero, 26f, TextAlignmentOptions.Center);
-        label.rectTransform.sizeDelta = new Vector2(160f, 50f);
+        label.rectTransform.sizeDelta = new Vector2(160f, 28f);
 
-        var statusText = WorldUiFactory.CreateText(panelGo.transform, "Status", "No recipe selected", new Vector2(0f, -55f), 20f, TextAlignmentOptions.Center);
+        var statusText = WorldUiFactory.CreateText(panelGo.transform, "Status", "No recipe selected", new Vector2(0f, 28f), 18f, TextAlignmentOptions.Center);
         statusText.rectTransform.SetParent(canvasGo.transform, false);
-        statusText.rectTransform.anchorMin = new Vector2(0.5f, 1f);
-        statusText.rectTransform.anchorMax = new Vector2(0.5f, 1f);
-        statusText.rectTransform.anchoredPosition = new Vector2(0f, -110f);
+        statusText.rectTransform.anchorMin = new Vector2(0.5f, 0f);
+        statusText.rectTransform.anchorMax = new Vector2(0.5f, 0f);
+        statusText.rectTransform.anchoredPosition = new Vector2(0f, 72f);
 
         button.OnClickAsObservable()
             .Subscribe(_ => recipeService.SelectRecipe(soupRecipe))

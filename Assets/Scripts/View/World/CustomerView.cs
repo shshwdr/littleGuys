@@ -14,7 +14,12 @@ public class CustomerView : MonoBehaviour
         customer = data;
         transform.position = new Vector3(position.x, position.y, 0f);
 
-        ColorSpriteFactory.CreateSquare("Body", transform, new Color(0.9f, 0.4f, 0.6f), new Vector2(0.8f, 0.8f));
+        ColorSpriteFactory.CreateSprite(
+            "Body",
+            transform,
+            ResourceSpriteLoader.GetCustomer(),
+            Color.white,
+            new Vector2(0.8f, 0.8f));
 
         var canvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, 0.8f, 0f), new Vector2(220f, 120f));
         orderText = WorldUiFactory.CreateText(canvas.transform, "Order", customer.OrderName, new Vector2(0f, 30f), 28f, TextAlignmentOptions.Center);

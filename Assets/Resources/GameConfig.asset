@@ -20,9 +20,11 @@ MonoBehaviour:
   cookDuration: 15
   plateDuration: 5
   maxCustomers: 5
-  customerSpawnInterval: 10
+  customerSpawnInterval: 30
   customerMaxPatience: 100
   patienceDecayPerSecond: 1
   workerSpacing: 0.35
   carryYOffset: 0.5
   arriveThreshold: 0.05
+  foodSpriteSize: 0.75
+  sourceFetchOffsetY: 0.9

@@ -134,6 +134,27 @@ public class GameBootstrap : MonoBehaviour
             var view = go.AddComponent<ZoneWorldUIView>();
             view.Setup(type, model, assignService, layout.GetZonePosition(type), label);
             view.Bind(disposables);
+
+            var itemGo = new GameObject("ZoneItem");
+            itemGo.transform.SetParent(worldRoot, false);
+            itemGo.AddComponent<ZoneItemView>().Setup(type, model, model.Config);
+
+            if (type == ZoneType.Chop)
+            {
+                var pileGo = new GameObject("ChopOutputPile");
+                pileGo.transform.SetParent(worldRoot, false);
+                pileGo.AddComponent<ZoneBufferPileView>().Setup(
+                    ZoneType.Chop, model, model.Config,
+                    layout.GetSourceItemPosition(ZoneType.Cook), FoodStage.Chopped);
+            }
+            else if (type == ZoneType.Cook)
+            {
+                var pileGo = new GameObject("CookOutputPile");
+                pileGo.transform.SetParent(worldRoot, false);
+                pileGo.AddComponent<ZoneBufferPileView>().Setup(
+                    ZoneType.Cook, model, model.Config,
+                    layout.GetSourceItemPosition(ZoneType.Plate), FoodStage.Cooked);
+            }
         }
         else
         {
@@ -143,15 +164,22 @@ public class GameBootstrap : MonoBehaviour
                 : new Color(0.55f, 0.55f, 0.55f);
             ColorSpriteFactory.CreateSquare("Zone", go.transform, color, new Vector2(1.6f, 1.2f));
 
+            var canvas = WorldUiFactory.CreateWorldCanvas(go.transform, new Vector3(0f, 1.1f, 0f), new Vector2(220f, 60f));
+            WorldUiFactory.CreateText(canvas.transform, "Title", label, Vector2.zero, 26f, TMPro.TextAlignmentOptions.Center);
+
             if (type == ZoneType.Ingredient)
             {
-                var canvas = WorldUiFactory.CreateWorldCanvas(go.transform, new Vector3(0f, 1.1f, 0f), new Vector2(220f, 60f));
-                WorldUiFactory.CreateText(canvas.transform, "Title", label, Vector2.zero, 26f, TMPro.TextAlignmentOptions.Center);
-            }
-            else
-            {
-                var canvas = WorldUiFactory.CreateWorldCanvas(go.transform, new Vector3(0f, 1.1f, 0f), new Vector2(220f, 60f));
-                WorldUiFactory.CreateText(canvas.transform, "Title", label, Vector2.zero, 26f, TMPro.TextAlignmentOptions.Center);
+                float size = model.Config.foodSpriteSize * 1.2f;
+                var pilePos = layout.GetSourceItemPosition(ZoneType.Chop);
+                var pileGo = new GameObject("IngredientPile");
+                pileGo.transform.position = new Vector3(pilePos.x, pilePos.y, -0.06f);
+                pileGo.transform.SetParent(worldRoot, false);
+                ColorSpriteFactory.CreateSprite(
+                    "Pile",
+                    pileGo.transform,
+                    ResourceSpriteLoader.GetFood(),
+                    FoodVisualColors.Get(FoodStage.Raw),
+                    new Vector2(size, size));
             }
         }
     }

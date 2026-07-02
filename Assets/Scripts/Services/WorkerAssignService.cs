@@ -59,8 +59,7 @@ public class WorkerAssignService
 
         worker.AssignedZone = zone;
         worker.HasArrivedAtZone = false;
-        worker.Carrying = FoodStage.None;
-        worker.DeliveryTarget = null;
+        worker.HasJoinedLift = false;
         worker.State = WorkerState.WalkingToZone;
 
         if (zone != ZoneType.Idle)
