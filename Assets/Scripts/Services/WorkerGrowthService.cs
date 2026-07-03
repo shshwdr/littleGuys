@@ -23,6 +23,7 @@ public class WorkerGrowthService
 
             worker.RemainingGrowTime = 0f;
             worker.IsSmall = false;
+            model.NotifyWorkerAssignmentChanged();
         }
     }
 }

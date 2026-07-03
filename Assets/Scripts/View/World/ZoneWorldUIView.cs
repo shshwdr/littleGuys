@@ -85,12 +85,17 @@ public class ZoneWorldUIView : MonoBehaviour
         subButton.interactable = assignService.CanRemoveWorker(zoneType);
 
         model.WorkerAssignmentChanged
-            .Subscribe(_ =>
-            {
-                addButton.interactable = assignService.CanAddWorker(zoneType);
-                subButton.interactable = assignService.CanRemoveWorker(zoneType);
-            })
+            .Subscribe(_ => RefreshAssignButtons())
             .AddTo(disposables);
+    }
+
+    void RefreshAssignButtons()
+    {
+        if (addButton == null || subButton == null)
+            return;
+
+        addButton.interactable = assignService.CanAddWorker(zoneType);
+        subButton.interactable = assignService.CanRemoveWorker(zoneType);
     }
 
     void Update()
@@ -102,6 +107,8 @@ public class ZoneWorldUIView : MonoBehaviour
         progressFill.fillAmount = Mathf.Clamp01(zone.TaskProgress.Value);
         if (percentText != null)
             percentText.text = zone.StatusText.Value;
+
+        RefreshAssignButtons();
     }
 
     static Color GetZoneColor(ZoneType type)

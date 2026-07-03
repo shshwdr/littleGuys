@@ -42,7 +42,9 @@ public class TransportService
 
     void TickIdleWorkers(float dt)
     {
-        var idleWorkers = model.Workers.Where(w => w.AssignedZone == ZoneType.Idle).ToList();
+        var idleWorkers = model.Workers
+            .Where(w => w.AssignedZone == ZoneType.Idle && !w.IsSacrificing)
+            .ToList();
         for (int i = 0; i < idleWorkers.Count; i++)
         {
             var worker = idleWorkers[i];
@@ -57,11 +59,14 @@ public class TransportService
     void TickWorkZone(ZoneType type, float dt)
     {
         var zone = model.GetZone(type);
+        if (!zone.IsUnlocked)
+            return;
+
         var workers = GetZoneWorkers(type);
         if (workers.Count == 0)
         {
             zone.Phase = ZonePhase.Idle;
-            production.ClearZoneTask(zone);
+            production.CancelActiveTask(zone, type);
             ClearSharedItem(zone);
             return;
         }
@@ -78,6 +83,7 @@ public class TransportService
                 TickCarrying(zone, type, workers, dt, layout.GetItemCenterAboveZone(type), "Returning");
                 break;
             case ZonePhase.Working:
+                MoveWorkersToZoneSlots(workers, type, dt);
                 break;
             case ZonePhase.Delivering:
                 TickDelivering(zone, type, workers, dt);
@@ -90,12 +96,13 @@ public class TransportService
         zone.StatusText.Value = "Waiting";
         zone.WorkSpeed.Value = 0f;
         ClearSharedItem(zone);
+        UnlockWorkerPositions(workers);
         MoveWorkersToZoneSlots(workers, type, dt);
 
         if (TryStartDelivery(zone, type, workers))
             return;
 
-        if (!production.TryActivateQueueHead(zone, type))
+        if (!production.TryActivateNextReadyTask(zone, type))
             return;
 
         if (zone.SpawnInputInZone)
@@ -122,11 +129,14 @@ public class TransportService
         zone.HasSharedItem = true;
         zone.SharedItemStage = zone.StepInput;
         zone.SharedFoodVisual = zone.StepInputVisual;
-        zone.SharedItemPosition = layout.GetItemCenterAboveZone(type);
+        zone.SharedItemPosition = layout.GetWorkItemPosition(type);
         zone.Phase = ZonePhase.Working;
         zone.TaskProgress.Value = 0f;
         zone.StatusText.Value = "0%";
         zone.WorkRotation = 0f;
+
+        var workers = GetZoneWorkers(type);
+        LockWorkersForProcessing(workers);
     }
 
     void BeginFetch(ZoneData zone, ZoneType type)
@@ -134,7 +144,12 @@ public class TransportService
         zone.Phase = ZonePhase.GoingToSource;
         zone.SharedMoveTarget = GetFetchItemPosition(type, zone);
         foreach (var worker in GetZoneWorkers(type))
+        {
             worker.HasJoinedLift = false;
+            worker.PositionLocked = false;
+            worker.HasArrivedAtZone = false;
+            worker.State = WorkerState.WalkingToZone;
+        }
     }
 
     void TickGoingToSource(ZoneData zone, ZoneType type, List<WorkerData> workers, float dt)
@@ -151,19 +166,22 @@ public class TransportService
         if (!TakeOneFromSource(type, zone, out var visual))
         {
             zone.Phase = ZonePhase.Idle;
-            production.ClearZoneTask(zone);
+            production.CancelActiveTask(zone, type);
             return;
         }
 
         zone.HasSharedItem = true;
         zone.SharedItemStage = zone.StepInput;
         zone.SharedFoodVisual = visual;
-        zone.SharedItemPosition = gatherItemPos;
-        zone.SharedMoveTarget = layout.GetItemCenterAboveZone(type);
+        zone.SharedItemPosition = layout.ElevateCarriedItem(gatherItemPos);
+        zone.SharedMoveTarget = layout.GetCarriedItemPosition(type);
         zone.Phase = ZonePhase.Returning;
 
         foreach (var worker in workers)
+        {
             worker.HasJoinedLift = worker.State != WorkerState.WalkingToZone;
+            worker.PositionLocked = false;
+        }
     }
 
     void TickCarrying(ZoneData zone, ZoneType type, List<WorkerData> workers, float dt, Vector2 target, string status)
@@ -188,15 +206,21 @@ public class TransportService
             return;
         }
 
-        Vector2 target = layout.GetCustomerPosition(customerIndex) + new Vector2(0f, model.Config.carryYOffset * 0.5f);
+        Vector2 target = layout.GetCustomerPosition(customerIndex, model.Customers.Count) + new Vector2(0f, model.Config.carryYOffset * 0.5f);
         TickCarrying(zone, type, workers, dt, target, "Delivering");
 
         if (!HasReached(zone.SharedItemPosition, target))
             return;
 
-        customerService.ServeCustomer(zone.DeliveryCustomer);
+        customerService.AddSatiety(zone.DeliveryCustomer, GetRecipeSatiety(zone.CurrentRecipeId));
         production.OnOrderDelivered(zone.CurrentOrderId);
         ResetAfterDelivery(zone);
+    }
+
+    int GetRecipeSatiety(string recipeId)
+    {
+        var recipe = model.GetRecipe(recipeId);
+        return recipe != null ? recipe.Satiety : 0;
     }
 
     void ResetAfterDelivery(ZoneData zone)
@@ -231,7 +255,8 @@ public class TransportService
             zone.TaskProgress.Value = 0f;
             zone.StatusText.Value = "0%";
             zone.WorkRotation = 0f;
-            zone.SharedItemPosition = zone.SharedMoveTarget;
+            zone.SharedItemPosition = layout.GetWorkItemPosition(zone.Type);
+            LockWorkersForProcessing(workers);
         }
     }
 
@@ -244,20 +269,25 @@ public class TransportService
         if (customer == null)
             return false;
 
-        if (!ZoneOutputStore.TryTake(zone, customer.RecipeId, FoodStage.Plated, out var item))
+        if (!ZoneOutputStore.TryTake(zone, null, FoodStage.Plated, out var item))
             return false;
 
         zone.DeliveryCustomer = customer;
         zone.HasSharedItem = true;
         zone.SharedItemStage = item.Stage;
         zone.SharedFoodVisual = item.Visual;
-        zone.SharedItemPosition = layout.GetItemCenterAboveZone(type);
+        zone.SharedItemPosition = layout.ElevateCarriedItem(layout.GetCarriedItemPosition(type));
         zone.CurrentRecipeId = item.RecipeId;
         zone.CurrentOrderId = item.OrderId;
         zone.Phase = ZonePhase.Delivering;
 
         foreach (var worker in workers)
-            worker.HasJoinedLift = worker.State != WorkerState.WalkingToZone;
+        {
+            worker.HasJoinedLift = false;
+            worker.PositionLocked = false;
+            worker.HasArrivedAtZone = false;
+            worker.State = WorkerState.WalkingToZone;
+        }
 
         return true;
     }
@@ -273,7 +303,7 @@ public class TransportService
             return true;
         }
 
-        var upstream = ProductionService.GetUpstreamZone(type, recipeId);
+        var upstream = production.GetUpstreamZone(type, recipeId);
         var upstreamZone = model.GetZone(upstream);
         var step = production.GetStepForZone(recipeId, type);
         var stage = step != null ? step.Input : FoodStage.None;
@@ -292,7 +322,7 @@ public class TransportService
         if (type == ZoneType.Chop && !zone.ConsumeWorkerAsInput)
             return layout.GetSourceItemPosition(ZoneType.Chop);
 
-        var upstream = ProductionService.GetUpstreamZone(type, recipeId);
+        var upstream = production.GetUpstreamZone(type, recipeId);
         return layout.GetItemCenterAboveZone(upstream);
     }
 
@@ -301,27 +331,29 @@ public class TransportService
         for (int i = 0; i < workers.Count; i++)
         {
             var worker = workers[i];
+            if (worker.PositionLocked)
+                worker.PositionLocked = false;
+
             Vector2 slot = layout.GetLiftWorkerPosition(objectCenter, i, workers.Count);
-
-            if (joinLift && worker.HasJoinedLift)
-            {
-                worker.Position = slot;
-                worker.State = WorkerState.InZoneSync;
-                continue;
-            }
-
-            worker.Position = Vector2.MoveTowards(worker.Position, slot, model.Config.workerMoveSpeed * dt);
+            worker.TargetPosition = slot;
+            worker.Position = Vector2.MoveTowards(
+                worker.Position,
+                slot,
+                model.Config.workerMoveSpeed * dt);
 
             if (Vector2.Distance(worker.Position, slot) <= model.Config.arriveThreshold)
             {
                 worker.Position = slot;
+                worker.HasArrivedAtZone = true;
                 worker.State = WorkerState.InZoneSync;
                 if (joinLift)
                     worker.HasJoinedLift = true;
             }
-            else if (worker.State != WorkerState.WalkingToZone)
+            else
             {
-                worker.State = WorkerState.InZoneSync;
+                worker.HasArrivedAtZone = false;
+                worker.State = WorkerState.WalkingToZone;
+                worker.HasJoinedLift = false;
             }
         }
     }
@@ -331,14 +363,17 @@ public class TransportService
         for (int i = 0; i < workers.Count; i++)
         {
             var worker = workers[i];
+            if (worker.PositionLocked)
+                continue;
+
             worker.HasJoinedLift = false;
             worker.WorkRotation = 0f;
             worker.TargetPosition = layout.GetWorkerSlotPosition(type, i, workers.Count);
             MoveWorkerFree(worker, dt);
 
-            if (worker.State == WorkerState.WalkingToZone && worker.HasArrivedAtZone)
-                worker.State = WorkerState.InZoneSync;
-            else if (worker.State != WorkerState.WalkingToZone)
+            if (!worker.HasArrivedAtZone)
+                worker.State = WorkerState.WalkingToZone;
+            else
                 worker.State = WorkerState.InZoneSync;
         }
     }
@@ -402,6 +437,26 @@ public class TransportService
         model.Workers.Remove(worker);
         model.GetZone(ZoneType.Idle).WorkerCount.Value =
             model.Workers.Count(w => w.AssignedZone == ZoneType.Idle);
+        model.NotifyWorkerAssignmentChanged();
         WorkerRemoved?.Invoke(worker);
+    }
+
+    static void LockWorkersForProcessing(List<WorkerData> workers)
+    {
+        foreach (var worker in workers)
+        {
+            if (!worker.HasArrivedAtZone)
+                continue;
+
+            worker.PositionLocked = true;
+            worker.WorkRotation = 0f;
+            worker.State = WorkerState.InZoneSync;
+        }
+    }
+
+    static void UnlockWorkerPositions(List<WorkerData> workers)
+    {
+        foreach (var worker in workers)
+            worker.PositionLocked = false;
     }
 }

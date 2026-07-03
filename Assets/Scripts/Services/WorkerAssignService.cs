@@ -18,6 +18,9 @@ public class WorkerAssignService
             return false;
 
         var zoneData = model.GetZone(zone);
+        if (!zoneData.IsUnlocked)
+            return false;
+
         if (zoneData.WorkerCount.Value >= model.Config.maxWorkersPerZone)
             return false;
 
@@ -29,6 +32,10 @@ public class WorkerAssignService
         if (zone == ZoneType.Ingredient || zone == ZoneType.Idle)
             return false;
 
+        var zoneData = model.GetZone(zone);
+        if (!zoneData.IsUnlocked)
+            return false;
+
         int count = model.Workers.Count(w => w.AssignedZone == zone);
         if (count <= 0)
             return false;
@@ -36,7 +43,6 @@ public class WorkerAssignService
         if (zone == ZoneType.Splitter && splitterService.IsSplitting())
             return count > 1;
 
-        var zoneData = model.GetZone(zone);
         if (zoneData.Phase == ZonePhase.Working && zoneData.ConsumeWorkerAsInput)
             return count > 1;
 
@@ -71,8 +77,10 @@ public class WorkerAssignService
             model.GetZone(oldZone).WorkerCount.Value--;
 
         worker.AssignedZone = zone;
+        worker.SacrificeTarget = null;
         worker.HasArrivedAtZone = false;
         worker.HasJoinedLift = false;
+        worker.PositionLocked = false;
         worker.WorkRotation = 0f;
         worker.State = WorkerState.WalkingToZone;
 
@@ -82,6 +90,6 @@ public class WorkerAssignService
         model.GetZone(ZoneType.Idle).WorkerCount.Value =
             model.Workers.Count(w => w.AssignedZone == ZoneType.Idle);
 
-        model.WorkerAssignmentChanged.OnNext(Unit.Default);
+        model.NotifyWorkerAssignmentChanged();
     }
 }

@@ -24,6 +24,12 @@ public class SplitterService
         var zone = model.GetZone(ZoneType.Splitter);
         var workers = GetSplitterWorkers();
 
+        if (zone.Phase != ZonePhase.Working)
+        {
+            foreach (var worker in workers)
+                worker.PositionLocked = false;
+        }
+
         MoveWorkersToZone(workers, dt);
 
         if (zone.Phase == ZonePhase.Working)
@@ -55,10 +61,29 @@ public class SplitterService
 
     void TickWorking(ZoneData zone, System.Collections.Generic.List<WorkerData> workers, float dt)
     {
-        int operatorCount = workers.Count;
-        if (operatorCount <= 0)
+        var arrivedWorkers = workers.Where(w => w.HasArrivedAtZone).ToList();
+        if (arrivedWorkers.Count == 0)
+        {
+            zone.StatusText.Value = "Waiting";
+            zone.WorkSpeed.Value = 0f;
             return;
+        }
 
+        foreach (var worker in workers)
+        {
+            if (worker.HasArrivedAtZone)
+            {
+                worker.PositionLocked = true;
+                worker.State = WorkerState.InZoneSync;
+                worker.WorkRotation = 0f;
+            }
+            else
+            {
+                worker.PositionLocked = false;
+            }
+        }
+
+        int operatorCount = arrivedWorkers.Count;
         zone.WorkRotation += model.Config.workRotationSpeed * dt;
         zone.WorkSpeed.Value = operatorCount / zone.BaseDuration;
         zone.TaskProgress.Value += (operatorCount / zone.BaseDuration) * dt;
@@ -70,14 +95,6 @@ public class SplitterService
         zone.SharedFoodVisual = FoodVisual.Minion;
         zone.SharedItemStage = FoodStage.Raw;
 
-        for (int i = 0; i < workers.Count; i++)
-        {
-            var worker = workers[i];
-            worker.State = WorkerState.InZoneSync;
-            worker.WorkRotation = zone.WorkRotation;
-            worker.Position = layout.GetLiftWorkerPosition(center, i, workers.Count);
-        }
-
         if (zone.TaskProgress.Value < 1f)
             return;
 
@@ -87,6 +104,9 @@ public class SplitterService
         zone.WorkRotation = 0f;
         ClearMaterial(zone);
 
+        foreach (var worker in workers)
+            worker.PositionLocked = false;
+
         for (int i = 0; i < 2; i++)
             SpawnSmallWorker(i);
     }
@@ -95,6 +115,8 @@ public class SplitterService
     {
         var material = workers[0];
         RemoveWorker(material);
+
+        workers = GetSplitterWorkers();
 
         zone.HasActiveStep = true;
         zone.BaseDuration = model.Config.splitterDuration;
@@ -106,6 +128,15 @@ public class SplitterService
         zone.SharedFoodVisual = FoodVisual.Minion;
         zone.SharedItemStage = FoodStage.Raw;
         zone.SharedItemPosition = layout.GetItemCenterAboveZone(ZoneType.Splitter);
+
+        foreach (var worker in workers)
+        {
+            if (!worker.HasArrivedAtZone)
+                continue;
+
+            worker.PositionLocked = true;
+            worker.WorkRotation = 0f;
+        }
     }
 
     void MoveWorkersToZone(System.Collections.Generic.List<WorkerData> workers, float dt)
@@ -113,6 +144,9 @@ public class SplitterService
         for (int i = 0; i < workers.Count; i++)
         {
             var worker = workers[i];
+            if (worker.PositionLocked)
+                continue;
+
             worker.TargetPosition = layout.GetWorkerSlotPosition(ZoneType.Splitter, i, workers.Count);
             worker.Position = Vector2.MoveTowards(
                 worker.Position,
@@ -122,9 +156,9 @@ public class SplitterService
             worker.HasArrivedAtZone =
                 Vector2.Distance(worker.Position, worker.TargetPosition) <= model.Config.arriveThreshold;
 
-            if (worker.State == WorkerState.WalkingToZone && worker.HasArrivedAtZone)
-                worker.State = WorkerState.InZoneSync;
-            else if (worker.State != WorkerState.WalkingToZone)
+            if (!worker.HasArrivedAtZone)
+                worker.State = WorkerState.WalkingToZone;
+            else if (worker.State == WorkerState.WalkingToZone)
                 worker.State = WorkerState.InZoneSync;
         }
     }
@@ -155,6 +189,7 @@ public class SplitterService
         model.Workers.Add(worker);
         model.GetZone(ZoneType.Idle).WorkerCount.Value =
             model.Workers.Count(w => w.AssignedZone == ZoneType.Idle);
+        model.NotifyWorkerAssignmentChanged();
         WorkerAdded?.Invoke(worker);
     }
 
@@ -166,6 +201,7 @@ public class SplitterService
         model.Workers.Remove(worker);
         model.GetZone(ZoneType.Idle).WorkerCount.Value =
             model.Workers.Count(w => w.AssignedZone == ZoneType.Idle);
+        model.NotifyWorkerAssignmentChanged();
         WorkerRemoved?.Invoke(worker);
     }
 

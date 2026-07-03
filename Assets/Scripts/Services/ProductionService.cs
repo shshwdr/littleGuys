@@ -9,7 +9,20 @@ public class ProductionService
         this.model = model;
     }
 
-    public void EnqueueRecipe(string recipeId)
+    public void ActivateRecipe(string recipeId)
+    {
+        if (!model.UnlockedRecipes.Contains(recipeId))
+            return;
+
+        var recipe = model.GetRecipe(recipeId);
+        if (recipe == null)
+            return;
+
+        model.ActiveRecipeId.Value = recipeId;
+        PushRecipeToChain(recipeId);
+    }
+
+    public void PushRecipeToChain(string recipeId)
     {
         var recipe = model.GetRecipe(recipeId);
         if (recipe == null)
@@ -19,7 +32,13 @@ public class ProductionService
         model.ProductionOrders.Add(new ProductionOrder { OrderId = orderId, RecipeId = recipeId });
 
         foreach (var step in recipe.Steps)
-            model.GetZone(step.Zone).TaskQueue.Add(new ZoneQueueItem { OrderId = orderId, RecipeId = recipeId });
+        {
+            var zone = model.GetZone(step.Zone);
+            if (!zone.IsUnlocked)
+                continue;
+
+            zone.TaskQueue.Add(new ZoneQueueItem { OrderId = orderId, RecipeId = recipeId });
+        }
     }
 
     public bool HasQueuedOrActiveWork()
@@ -36,38 +55,61 @@ public class ProductionService
         return false;
     }
 
-    public bool TryActivateQueueHead(ZoneData zone, ZoneType zoneType)
+    public bool TryActivateNextReadyTask(ZoneData zone, ZoneType zoneType)
     {
-        if (zone.TaskQueue.Count == 0)
+        if (!zone.IsUnlocked)
         {
             ClearZoneTask(zone);
             return false;
         }
 
-        var item = zone.TaskQueue[0];
-        var step = GetStepForZone(item.RecipeId, zoneType);
-        if (step == null)
+        for (int i = 0; i < zone.TaskQueue.Count; i++)
         {
-            zone.TaskQueue.RemoveAt(0);
-            return TryActivateQueueHead(zone, zoneType);
+            var item = zone.TaskQueue[i];
+            var step = GetStepForZone(item.RecipeId, zoneType);
+            if (step == null)
+                continue;
+
+            if (!IsZoneTaskReady(zoneType, item, step))
+                continue;
+
+            if (!TryClaimUpstream(zoneType, item, step))
+                continue;
+
+            zone.ActiveQueueIndex = i;
+            ApplyStepToZone(zone, step, item.RecipeId);
+            zone.CurrentOrderId = item.OrderId;
+            return true;
         }
 
-        if (!IsZoneTaskReady(zoneType, item, step))
-            return false;
-
-        ApplyStepToZone(zone, step, item.RecipeId);
-        zone.CurrentOrderId = item.OrderId;
-        return true;
+        ClearZoneTask(zone);
+        return false;
     }
 
     public bool IsZoneTaskReady(ZoneType zoneType, ZoneQueueItem item, RecipeStep step)
     {
-        if (step.SpawnInputInZone || zoneType == ZoneType.Chop)
+        if (step.SpawnInputInZone)
+            return true;
+
+        if (zoneType == ZoneType.Chop && !step.ConsumeWorkerAsInput)
             return true;
 
         var upstream = GetUpstreamZone(zoneType, item.RecipeId);
         var upstreamZone = model.GetZone(upstream);
         return ZoneOutputStore.Has(upstreamZone, step.Input, item.RecipeId, item.OrderId);
+    }
+
+    bool TryClaimUpstream(ZoneType zoneType, ZoneQueueItem item, RecipeStep step)
+    {
+        if (step.SpawnInputInZone)
+            return true;
+
+        if (zoneType == ZoneType.Chop && !step.ConsumeWorkerAsInput)
+            return true;
+
+        var upstream = GetUpstreamZone(zoneType, item.RecipeId);
+        var upstreamZone = model.GetZone(upstream);
+        return ZoneOutputStore.TryClaim(upstreamZone, item.RecipeId, step.Input, out _, item.OrderId);
     }
 
     public bool CanFetchForActiveTask(ZoneData zone, ZoneType zoneType)
@@ -82,28 +124,50 @@ public class ProductionService
         if (step.SpawnInputInZone)
             return true;
 
-        if (zoneType == ZoneType.Chop)
+        if (zoneType == ZoneType.Chop && !zone.ConsumeWorkerAsInput)
             return true;
 
         var upstream = GetUpstreamZone(zoneType, zone.CurrentRecipeId);
-        return ZoneOutputStore.Has(
-            model.GetZone(upstream),
-            step.Input,
-            zone.CurrentRecipeId,
-            zone.CurrentOrderId);
+        var upstreamZone = model.GetZone(upstream);
+        return upstreamZone.OutputItems.Any(output =>
+            output.Occupied &&
+            output.OrderId == zone.CurrentOrderId &&
+            output.RecipeId == zone.CurrentRecipeId &&
+            output.Stage == step.Input);
     }
 
-    public void CompleteZoneStep(ZoneData zone)
+    public void CompleteZoneStep(ZoneData zone, ZoneType zoneType)
     {
-        if (zone.TaskQueue.Count > 0)
+        if (zone.ActiveQueueIndex >= 0 && zone.ActiveQueueIndex < zone.TaskQueue.Count)
+            zone.TaskQueue.RemoveAt(zone.ActiveQueueIndex);
+        else if (zone.TaskQueue.Count > 0)
             zone.TaskQueue.RemoveAt(0);
 
         ClearZoneTask(zone);
+
+        var activeRecipe = model.GetRecipe(model.ActiveRecipeId.Value);
+        if (activeRecipe != null && activeRecipe.FirstZone == zoneType)
+            PushRecipeToChain(model.ActiveRecipeId.Value);
     }
 
     public void OnOrderDelivered(int orderId)
     {
         model.ProductionOrders.RemoveAll(order => order.OrderId == orderId);
+    }
+
+    public void CancelActiveTask(ZoneData zone, ZoneType zoneType)
+    {
+        if (!zone.HasActiveStep)
+            return;
+
+        var step = GetStepForZone(zone.CurrentRecipeId, zoneType);
+        if (step != null && !step.SpawnInputInZone && !(zoneType == ZoneType.Chop && !step.ConsumeWorkerAsInput))
+        {
+            var upstream = GetUpstreamZone(zoneType, zone.CurrentRecipeId);
+            ZoneOutputStore.ReleaseClaimsForOrder(model.GetZone(upstream), zone.CurrentOrderId);
+        }
+
+        ClearZoneTask(zone);
     }
 
     public RecipeStep GetStepForZone(string recipeId, ZoneType zone)
@@ -135,6 +199,7 @@ public class ProductionService
         zone.HasActiveStep = false;
         zone.CurrentRecipeId = null;
         zone.CurrentOrderId = 0;
+        zone.ActiveQueueIndex = -1;
         zone.StepInput = FoodStage.None;
         zone.StepOutput = FoodStage.None;
         zone.BaseDuration = 0f;
@@ -147,18 +212,23 @@ public class ProductionService
         zone.WorkRotation = 0f;
     }
 
-    public static ZoneType GetUpstreamZone(ZoneType zoneType, string recipeId)
+    public ZoneType GetUpstreamZone(ZoneType zoneType, string recipeId)
     {
-        switch (zoneType)
+        var recipe = model.GetRecipe(recipeId);
+        if (recipe == null)
+            return zoneType;
+
+        for (int i = 0; i < recipe.Steps.Length; i++)
         {
-            case ZoneType.Cook:
-                return ZoneType.Chop;
-            case ZoneType.Wok:
-                return ZoneType.Chop;
-            case ZoneType.Plate:
-                return recipeId == "stirfry" ? ZoneType.Wok : ZoneType.Cook;
-            default:
-                return zoneType;
+            if (recipe.Steps[i].Zone != zoneType)
+                continue;
+
+            if (i == 0)
+                return ZoneType.Ingredient;
+
+            return recipe.Steps[i - 1].Zone;
         }
+
+        return zoneType;
     }
 }

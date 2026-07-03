@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: GameConfig
   m_EditorClassIdentifier: 
   totalWorkers: 10
-  maxWorkersPerZone: 5
+  maxWorkersPerZone: 7
   workerMoveSpeed: 2
   carryMoveSpeedDivisor: 20
   smallWorkerGrowTime: 10
@@ -22,13 +22,16 @@ MonoBehaviour:
   cookDuration: 15
   wokDuration: 20
   plateDuration: 5
-  splitterDuration: 20
+  splitterDuration: 50
   maxCustomers: 5
   customerSpawnInterval: 30
   customerMaxPatience: 100
-  patienceDecayPerSecond: 0.5
+  patienceDecayPerSecond: 1
   workerSpacing: 0.35
   carryYOffset: 0.5
+  carriedItemHeight: 0.95
+  workItemHeight: 1.15
+  customerSacrificePatienceRestore: 0.3
   arriveThreshold: 0.05
   foodSpriteSize: 0.75
   sourceFetchOffsetY: 0.9

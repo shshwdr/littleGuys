@@ -33,17 +33,17 @@ public class ZoneBufferPileView : MonoBehaviour
             return;
 
         var zone = model.GetZone(sourceZone);
-        bool carryingAway = zone.HasSharedItem && zone.Phase != ZonePhase.Working;
         var item = zone.OutputItems.FirstOrDefault(output =>
             output.Stage == stage &&
             (visualFilter == FoodVisual.None || output.Visual == visualFilter));
+
         bool hasItem = item != null;
-        pileRenderer.enabled = hasItem && !carryingAway;
+        pileRenderer.enabled = hasItem;
 
         if (!hasItem)
             return;
 
         pileRenderer.sprite = ResourceSpriteLoader.GetFoodVisual(item.Visual);
-        pileRenderer.color = Color.white;
+        pileRenderer.color = item.Occupied ? new Color(1f, 1f, 1f, 0.55f) : Color.white;
     }
 }

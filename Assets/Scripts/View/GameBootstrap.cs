@@ -18,6 +18,7 @@ public class GameBootstrap : MonoBehaviour
     readonly CompositeDisposable disposables = new CompositeDisposable();
     readonly Dictionary<CustomerData, CustomerView> customerViews = new Dictionary<CustomerData, CustomerView>();
     readonly Dictionary<int, WorkerView> workerViews = new Dictionary<int, WorkerView>();
+    readonly HashSet<ZoneType> createdZoneViews = new HashSet<ZoneType>();
 
     GameModel model;
     WorldLayout layout;
@@ -28,6 +29,7 @@ public class GameBootstrap : MonoBehaviour
     ProductionService productionService;
     SplitterService splitterService;
     WorkerGrowthService growthService;
+    CustomerSacrificeService sacrificeService;
 
     Transform worldRoot;
     Transform workerRoot;
@@ -58,10 +60,12 @@ public class GameBootstrap : MonoBehaviour
         workService = new ZoneWorkService(model, layout, productionService);
         transportService = new TransportService(model, layout, customerService, productionService);
         growthService = new WorkerGrowthService(model);
+        sacrificeService = new CustomerSacrificeService(model, layout, assignService);
 
         splitterService.WorkerAdded += OnWorkerAdded;
         splitterService.WorkerRemoved += OnWorkerRemoved;
         transportService.WorkerRemoved += OnWorkerRemoved;
+        sacrificeService.WorkerRemoved += OnWorkerRemoved;
 
         worldRoot = new GameObject("World").transform;
         workerRoot = new GameObject("Workers").transform;
@@ -73,16 +77,20 @@ public class GameBootstrap : MonoBehaviour
         CreateWorkers();
         CreateUi();
 
+        model.ZoneUnlocked
+            .Subscribe(zoneType => CreateZoneViewIfNeeded(zoneType))
+            .AddTo(disposables);
+
         model.Customers.ObserveAdd()
             .Subscribe(e => OnCustomerAdded(e.Value))
             .AddTo(disposables);
 
         model.Customers.ObserveRemove()
-            .Subscribe(e => OnCustomerRemoved(e.Value))
-            .AddTo(disposables);
-
-        Observable.EveryUpdate()
-            .Subscribe(_ => RefreshCustomerPositions())
+            .Subscribe(e =>
+            {
+                OnCustomerRemoved(e.Value);
+                RefreshCustomerPositions();
+            })
             .AddTo(disposables);
 
         Observable.EveryUpdate()
@@ -95,6 +103,7 @@ public class GameBootstrap : MonoBehaviour
                 workService.Tick(dt);
                 splitterService.Tick(dt);
                 growthService.Tick(dt);
+                sacrificeService.Tick(dt);
             })
             .AddTo(disposables);
     }
@@ -103,11 +112,12 @@ public class GameBootstrap : MonoBehaviour
     {
         var gameModel = new GameModel { Config = config };
         gameModel.Recipes = RecipeFactory.CreateMap(config);
+        gameModel.UnlockedRecipes.Add("vegsalad");
 
         gameModel.Zones[ZoneType.Ingredient] = new ZoneData { Type = ZoneType.Ingredient };
         gameModel.Zones[ZoneType.Chop] = new ZoneData { Type = ZoneType.Chop };
-        gameModel.Zones[ZoneType.Cook] = new ZoneData { Type = ZoneType.Cook };
-        gameModel.Zones[ZoneType.Wok] = new ZoneData { Type = ZoneType.Wok };
+        gameModel.Zones[ZoneType.Cook] = new ZoneData { Type = ZoneType.Cook, IsUnlocked = false };
+        gameModel.Zones[ZoneType.Wok] = new ZoneData { Type = ZoneType.Wok, IsUnlocked = false };
         gameModel.Zones[ZoneType.Plate] = new ZoneData { Type = ZoneType.Plate };
         gameModel.Zones[ZoneType.Splitter] = new ZoneData { Type = ZoneType.Splitter };
         gameModel.Zones[ZoneType.Idle] = new ZoneData { Type = ZoneType.Idle };
@@ -134,15 +144,36 @@ public class GameBootstrap : MonoBehaviour
     {
         CreateZoneView(ZoneType.Ingredient, "Ingredient", false);
         CreateZoneView(ZoneType.Chop, "Chop", true);
-        CreateZoneView(ZoneType.Cook, "Cook", true);
-        CreateZoneView(ZoneType.Wok, "Wok", true);
         CreateZoneView(ZoneType.Plate, "Plate", true);
         CreateZoneView(ZoneType.Splitter, "Splitter", true);
         CreateZoneView(ZoneType.Idle, "Idle", false);
     }
 
+    void CreateZoneViewIfNeeded(ZoneType type)
+    {
+        if (!model.GetZone(type).IsUnlocked || createdZoneViews.Contains(type))
+            return;
+
+        switch (type)
+        {
+            case ZoneType.Cook:
+                CreateZoneView(ZoneType.Cook, "Cook", true);
+                break;
+            case ZoneType.Wok:
+                CreateZoneView(ZoneType.Wok, "Wok", true);
+                break;
+        }
+    }
+
     void CreateZoneView(ZoneType type, string label, bool withControls)
     {
+        if (withControls && !model.GetZone(type).IsUnlocked)
+            return;
+
+        if (createdZoneViews.Contains(type))
+            return;
+
+        createdZoneViews.Add(type);
         var go = new GameObject(label + "Zone");
         go.transform.SetParent(worldRoot, false);
 
@@ -216,12 +247,7 @@ public class GameBootstrap : MonoBehaviour
     {
         var recipeGo = new GameObject("RecipePanel");
         recipeGo.transform.SetParent(transform, false);
-        recipeGo.AddComponent<RecipePanelView>().Setup(
-            model,
-            productionService,
-            model.GetRecipe("soup"),
-            model.GetRecipe("stirfry"),
-            disposables);
+        recipeGo.AddComponent<RecipePanelView>().Setup(model, productionService, disposables);
 
         var gameOverGo = new GameObject("GameOver");
         gameOverGo.transform.SetParent(transform, false);
@@ -236,7 +262,8 @@ public class GameBootstrap : MonoBehaviour
         var go = new GameObject("Worker_" + worker.Id);
         go.transform.SetParent(workerRoot, false);
         var view = go.AddComponent<WorkerView>();
-        view.Setup(worker, model.Config);
+        view.Setup(worker, model, layout, model.Config);
+        view.SacrificeAnimationComplete += sacrificeService.FinalizeSacrifice;
         workerViews[worker.Id] = view;
     }
 
@@ -253,10 +280,14 @@ public class GameBootstrap : MonoBehaviour
     void OnCustomerAdded(CustomerData customer)
     {
         int index = model.Customers.IndexOf(customer);
+        int total = model.Customers.Count;
+        Vector2 target = layout.GetCustomerPosition(index, total);
+        Vector2 entry = layout.GetCustomerEntryPosition(index, total);
+
         var go = new GameObject("Customer_" + customer.Id);
         go.transform.SetParent(customerRoot, false);
         var view = go.AddComponent<CustomerView>();
-        view.Setup(customer, layout.GetCustomerPosition(index));
+        view.Setup(customer, entry, target, model, sacrificeService, disposables);
         view.Bind(disposables);
         customerViews[customer] = view;
         RefreshCustomerPositions();
@@ -274,14 +305,15 @@ public class GameBootstrap : MonoBehaviour
 
     void RefreshCustomerPositions()
     {
-        for (int i = 0; i < model.Customers.Count; i++)
+        int total = model.Customers.Count;
+        for (int i = 0; i < total; i++)
         {
             var customer = model.Customers[i];
             if (!customerViews.TryGetValue(customer, out var view) || view == null)
                 continue;
 
-            Vector2 pos = layout.GetCustomerPosition(i);
-            view.transform.position = new Vector3(pos.x, pos.y, 0f);
+            Vector2 pos = layout.GetCustomerPosition(i, total);
+            view.MoveTo(pos);
         }
     }
 

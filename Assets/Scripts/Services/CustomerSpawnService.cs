@@ -54,17 +54,14 @@ public class CustomerSpawnService
 
     void SpawnCustomer()
     {
-        string recipeId = model.NextCustomerRecipeToggle % 2 == 0 ? "soup" : "stirfry";
-        model.NextCustomerRecipeToggle++;
-
-        var recipe = model.GetRecipe(recipeId);
-        string orderName = recipe != null ? recipe.DisplayName : recipeId;
+        model.TotalCustomersSpawned++;
+        int requiredSatiety = (model.TotalCustomersSpawned - 1) / 3 + 1;
 
         var customer = new CustomerData
         {
             Id = model.NextCustomerId++,
-            RecipeId = recipeId,
-            OrderName = orderName,
+            RequiredSatiety = requiredSatiety,
+            ReceivedSatiety = 0,
             MaxPatience = model.Config.customerMaxPatience
         };
         customer.Patience.Value = customer.MaxPatience;
@@ -73,7 +70,7 @@ public class CustomerSpawnService
 
     public CustomerData GetFirstWaitingCustomer()
     {
-        return model.Customers.FirstOrDefault(c => !c.IsServed);
+        return model.Customers.FirstOrDefault(c => !c.IsServed && !c.IsFullySatiated);
     }
 
     public void ServeCustomer(CustomerData customer)
@@ -83,5 +80,42 @@ public class CustomerSpawnService
 
         customer.IsServed = true;
         model.Customers.Remove(customer);
+        model.ServedCustomerCount++;
+        CheckUnlocks();
+    }
+
+    public void AddSatiety(CustomerData customer, int satiety)
+    {
+        if (customer == null || customer.IsServed)
+            return;
+
+        customer.ReceivedSatiety += satiety;
+        if (customer.IsFullySatiated)
+            ServeCustomer(customer);
+    }
+
+    void CheckUnlocks()
+    {
+        if (model.ServedCustomerCount >= 1 && model.UnlockedRecipes.Add("vegsoup"))
+        {
+            UnlockZone(ZoneType.Cook);
+            model.RecipeUnlocked.OnNext("vegsoup");
+        }
+
+        if (model.ServedCustomerCount >= 3 && model.UnlockedRecipes.Add("stirfry"))
+        {
+            UnlockZone(ZoneType.Wok);
+            model.RecipeUnlocked.OnNext("stirfry");
+        }
+    }
+
+    void UnlockZone(ZoneType zoneType)
+    {
+        var zone = model.GetZone(zoneType);
+        if (zone.IsUnlocked)
+            return;
+
+        zone.IsUnlocked = true;
+        model.ZoneUnlocked.OnNext(zoneType);
     }
 }

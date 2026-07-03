@@ -5,7 +5,7 @@ public class WorldLayout
     readonly GameConfigData config;
 
     public Vector2 CustomerAreaCenter = new Vector2(0f, 4.5f);
-    public float CustomerSpacing = 1.5f;
+    public float CustomerSpacing = 1.85f;
 
     public Vector2 IngredientPos = new Vector2(-8f, 0f);
     public Vector2 ChopPos = new Vector2(-4.5f, 0f);
@@ -35,11 +35,34 @@ public class WorldLayout
         }
     }
 
-    public Vector2 GetCustomerPosition(int index)
+    public Vector2 GetCustomerPosition(int index, int totalCount)
     {
-        float totalWidth = (config.maxCustomers - 1) * CustomerSpacing;
-        float startX = CustomerAreaCenter.x - totalWidth * 0.5f;
-        return new Vector2(startX + index * CustomerSpacing, CustomerAreaCenter.y);
+        int count = Mathf.Max(totalCount, 1);
+        float totalWidth = (count - 1) * CustomerSpacing;
+        float rightX = CustomerAreaCenter.x + totalWidth * 0.5f;
+        return new Vector2(rightX - index * CustomerSpacing, CustomerAreaCenter.y);
+    }
+
+    public Vector2 GetCustomerSacrificePosition(int index, int totalCount)
+    {
+        return GetCustomerPosition(index, totalCount) + new Vector2(0f, -1.1f);
+    }
+
+    public Vector2 GetWorkItemPosition(ZoneType zone)
+    {
+        Vector2 center = GetZonePosition(zone);
+        return center + new Vector2(0f, config.workItemHeight);
+    }
+
+    public Vector2 GetCarriedItemPosition(ZoneType zone)
+    {
+        Vector2 center = GetZonePosition(zone);
+        return center + new Vector2(0f, config.carriedItemHeight);
+    }
+
+    public Vector2 ElevateCarriedItem(Vector2 basePosition)
+    {
+        return basePosition + new Vector2(0f, config.carriedItemHeight * 0.35f);
     }
 
     public Vector2 GetWorkerSlotPosition(ZoneType zone, int index, int totalInZone)
@@ -66,21 +89,25 @@ public class WorldLayout
         return new Vector2(startX + index * config.workerSpacing, pileCenter.y);
     }
 
-    public Vector2 GetLiftWorkerPosition(Vector2 objectCenter, int index, int total)
+    public Vector2 GetCustomerEntryPosition(int index, int totalCount)
     {
-        float workerY = objectCenter.y - config.carryYOffset;
+        return GetCustomerPosition(index, totalCount) + new Vector2(-4f, 0f);
+    }
+
+    public Vector2 GetLiftWorkerPosition(Vector2 itemCenter, int index, int total)
+    {
+        float workerY = itemCenter.y - config.carryYOffset * 1.15f;
         if (total <= 1)
-            return new Vector2(objectCenter.x, workerY);
+            return new Vector2(itemCenter.x, workerY);
 
         float totalWidth = (total - 1) * config.workerSpacing;
-        float startX = objectCenter.x - totalWidth * 0.5f;
+        float startX = itemCenter.x - totalWidth * 0.5f;
         return new Vector2(startX + index * config.workerSpacing, workerY);
     }
 
     public Vector2 GetItemCenterAboveZone(ZoneType zone)
     {
-        Vector2 center = GetZonePosition(zone);
-        return center + new Vector2(0f, config.carryYOffset * 0.5f);
+        return GetWorkItemPosition(zone);
     }
 
     public Vector2 GetSourceItemPosition(ZoneType workZone)
@@ -107,25 +134,6 @@ public class WorldLayout
 
     public ZoneType GetUpstreamZone(ZoneType workZone, string recipeId, ProductionService production)
     {
-        var step = production.GetStepForZone(recipeId, workZone);
-        if (step == null)
-            return workZone;
-
-        switch (workZone)
-        {
-            case ZoneType.Chop:
-                return ZoneType.Ingredient;
-            case ZoneType.Cook:
-                return ZoneType.Chop;
-            case ZoneType.Wok:
-                return ZoneType.Chop;
-            case ZoneType.Plate:
-                var recipe = production.GetStepForZone(recipeId, workZone);
-                if (recipeId == "stirfry")
-                    return ZoneType.Wok;
-                return ZoneType.Cook;
-            default:
-                return workZone;
-        }
+        return production.GetUpstreamZone(workZone, recipeId);
     }
 }

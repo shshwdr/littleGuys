@@ -1,4 +1,4 @@
-using System.Linq;
+using System.Collections.Generic;
 using TMPro;
 using UniRx;
 using UnityEngine;
@@ -6,13 +6,19 @@ using UnityEngine.UI;
 
 public class RecipePanelView : MonoBehaviour
 {
-    public void Setup(
-        GameModel model,
-        ProductionService productionService,
-        RecipeData soupRecipe,
-        RecipeData stirFryRecipe,
-        CompositeDisposable disposables)
+    readonly Dictionary<string, Button> recipeButtons = new Dictionary<string, Button>();
+    readonly Dictionary<string, Image> recipeButtonImages = new Dictionary<string, Image>();
+    TMP_Text queueText;
+    GameModel model;
+    ProductionService productionService;
+    CompositeDisposable disposables;
+
+    public void Setup(GameModel gameModel, ProductionService production, CompositeDisposable bindDisposables)
     {
+        model = gameModel;
+        productionService = production;
+        disposables = bindDisposables;
+
         var canvasGo = new GameObject("RecipeCanvas");
         canvasGo.transform.SetParent(transform, false);
         var canvas = canvasGo.AddComponent<Canvas>();
@@ -27,56 +33,93 @@ public class RecipePanelView : MonoBehaviour
         panelRect.anchorMax = new Vector2(0.5f, 0f);
         panelRect.pivot = new Vector2(0.5f, 0f);
         panelRect.anchoredPosition = new Vector2(0f, 20f);
-        panelRect.sizeDelta = new Vector2(520f, 40f);
+        panelRect.sizeDelta = new Vector2(620f, 40f);
 
         var bg = panelGo.AddComponent<Image>();
         bg.color = new Color(0f, 0f, 0f, 0.55f);
 
-        WorldUiFactory.CreateText(panelGo.transform, "Title", "Add Order", new Vector2(-190f, 0f), 22f, TextAlignmentOptions.MidlineLeft);
+        WorldUiFactory.CreateText(panelGo.transform, "Title", "Activate", new Vector2(-250f, 0f), 22f, TextAlignmentOptions.MidlineLeft);
 
-        CreateRecipeButton(panelGo.transform, "SoupButton", "Soup", new Vector2(-40f, 0f), soupRecipe, productionService, disposables);
-        CreateRecipeButton(panelGo.transform, "StirFryButton", "Stir Fry", new Vector2(150f, 0f), stirFryRecipe, productionService, disposables);
-
-        var queueText = WorldUiFactory.CreateText(canvasGo.transform, "Queue", "Queue: 0", Vector2.zero, 18f, TextAlignmentOptions.Center);
+        queueText = WorldUiFactory.CreateText(canvasGo.transform, "Queue", "Queue: 0", Vector2.zero, 18f, TextAlignmentOptions.Center);
         queueText.rectTransform.anchorMin = new Vector2(0.5f, 0f);
         queueText.rectTransform.anchorMax = new Vector2(0.5f, 0f);
         queueText.rectTransform.anchoredPosition = new Vector2(0f, 72f);
 
+        model.RecipeUnlocked
+            .Subscribe(recipeId => EnsureRecipeButton(panelGo.transform, recipeId))
+            .AddTo(disposables);
+
+        foreach (var recipeId in model.UnlockedRecipes)
+            EnsureRecipeButton(panelGo.transform, recipeId);
+
+        model.ActiveRecipeId
+            .Subscribe(_ => RefreshActiveHighlights())
+            .AddTo(disposables);
+
         Observable.EveryUpdate()
-            .Subscribe(_ =>
-            {
-                int orderCount = model.ProductionOrders.Count;
-                int chopQ = model.GetZone(ZoneType.Chop).TaskQueue.Count;
-                int cookQ = model.GetZone(ZoneType.Cook).TaskQueue.Count;
-                int wokQ = model.GetZone(ZoneType.Wok).TaskQueue.Count;
-                int plateQ = model.GetZone(ZoneType.Plate).TaskQueue.Count;
-                queueText.text = $"Orders: {orderCount} | Chop:{chopQ} Cook:{cookQ} Wok:{wokQ} Plate:{plateQ}";
-            })
+            .Subscribe(_ => RefreshQueueText())
             .AddTo(disposables);
     }
 
-    static void CreateRecipeButton(
-        Transform parent,
-        string name,
-        string label,
-        Vector2 position,
-        RecipeData recipe,
-        ProductionService productionService,
-        CompositeDisposable disposables)
+    void EnsureRecipeButton(Transform parent, string recipeId)
     {
-        var buttonGo = new GameObject(name);
+        if (recipeButtons.ContainsKey(recipeId))
+            return;
+
+        var recipe = model.GetRecipe(recipeId);
+        if (recipe == null)
+            return;
+
+        float x = recipeId == "vegsalad" ? -120f : recipeId == "vegsoup" ? 40f : 200f;
+        var buttonGo = new GameObject(recipeId + "Button");
         buttonGo.transform.SetParent(parent, false);
         var buttonRect = buttonGo.AddComponent<RectTransform>();
-        buttonRect.anchoredPosition = position;
-        buttonRect.sizeDelta = new Vector2(140f, 28f);
-        buttonGo.AddComponent<Image>().color = new Color(0.25f, 0.45f, 0.8f, 1f);
+        buttonRect.anchoredPosition = new Vector2(x, 0f);
+        buttonRect.sizeDelta = new Vector2(150f, 28f);
+        var image = buttonGo.AddComponent<Image>();
+        image.color = new Color(0.25f, 0.45f, 0.8f, 1f);
         var button = buttonGo.AddComponent<Button>();
 
-        var text = WorldUiFactory.CreateText(buttonGo.transform, "Label", label, Vector2.zero, 22f, TextAlignmentOptions.Center);
-        text.rectTransform.sizeDelta = new Vector2(140f, 28f);
+        var text = WorldUiFactory.CreateText(
+            buttonGo.transform,
+            "Label",
+            recipe.DisplayName,
+            Vector2.zero,
+            20f,
+            TextAlignmentOptions.Center);
+        text.rectTransform.sizeDelta = new Vector2(150f, 28f);
 
         button.OnClickAsObservable()
-            .Subscribe(_ => productionService.EnqueueRecipe(recipe.Id))
+            .Subscribe(_ => productionService.ActivateRecipe(recipeId))
             .AddTo(disposables);
+
+        recipeButtons[recipeId] = button;
+        recipeButtonImages[recipeId] = image;
+        RefreshActiveHighlights();
+    }
+
+    void RefreshActiveHighlights()
+    {
+        string activeId = model.ActiveRecipeId.Value;
+        foreach (var pair in recipeButtonImages)
+        {
+            bool isActive = pair.Key == activeId;
+            pair.Value.color = isActive
+                ? new Color(0.95f, 0.75f, 0.2f, 1f)
+                : new Color(0.25f, 0.45f, 0.8f, 1f);
+        }
+    }
+
+    void RefreshQueueText()
+    {
+        if (queueText == null || model == null)
+            return;
+
+        int orderCount = model.ProductionOrders.Count;
+        int chopQ = model.GetZone(ZoneType.Chop).TaskQueue.Count;
+        int cookQ = model.GetZone(ZoneType.Cook).TaskQueue.Count;
+        int wokQ = model.GetZone(ZoneType.Wok).TaskQueue.Count;
+        int plateQ = model.GetZone(ZoneType.Plate).TaskQueue.Count;
+        queueText.text = $"Orders: {orderCount} | Chop:{chopQ} Cook:{cookQ} Wok:{wokQ} Plate:{plateQ}";
     }
 }
