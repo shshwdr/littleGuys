@@ -4,14 +4,16 @@ public class WorldLayout
 {
     readonly GameConfigData config;
 
-    public Vector2 CustomerAreaCenter = new Vector2(0f, 4f);
+    public Vector2 CustomerAreaCenter = new Vector2(0f, 4.5f);
     public float CustomerSpacing = 1.5f;
 
-    public Vector2 IngredientPos = new Vector2(-6f, 0f);
-    public Vector2 ChopPos = new Vector2(-2f, 0f);
-    public Vector2 CookPos = new Vector2(2f, 0f);
+    public Vector2 IngredientPos = new Vector2(-8f, 0f);
+    public Vector2 ChopPos = new Vector2(-4.5f, 0f);
+    public Vector2 CookPos = new Vector2(-1f, 0f);
+    public Vector2 WokPos = new Vector2(2.5f, 0f);
     public Vector2 PlatePos = new Vector2(6f, 0f);
-    public Vector2 IdlePos = new Vector2(0f, -3f);
+    public Vector2 SplitterPos = new Vector2(-3.5f, -3.5f);
+    public Vector2 IdlePos = new Vector2(3.5f, -3.5f);
 
     public WorldLayout(GameConfigData config)
     {
@@ -25,7 +27,9 @@ public class WorldLayout
             case ZoneType.Ingredient: return IngredientPos;
             case ZoneType.Chop: return ChopPos;
             case ZoneType.Cook: return CookPos;
+            case ZoneType.Wok: return WokPos;
             case ZoneType.Plate: return PlatePos;
+            case ZoneType.Splitter: return SplitterPos;
             case ZoneType.Idle: return IdlePos;
             default: return Vector2.zero;
         }
@@ -92,10 +96,36 @@ public class WorldLayout
                 return IngredientPos + new Vector2(0f, 0.5f);
             case ZoneType.Cook:
                 return ChopPos + new Vector2(0f, 0.5f);
+            case ZoneType.Wok:
+                return ChopPos + new Vector2(0f, 0.5f);
             case ZoneType.Plate:
-                return CookPos + new Vector2(0f, 0.5f);
+                return PlatePos + new Vector2(0f, -0.2f);
             default:
                 return GetZonePosition(workZone);
+        }
+    }
+
+    public ZoneType GetUpstreamZone(ZoneType workZone, string recipeId, ProductionService production)
+    {
+        var step = production.GetStepForZone(recipeId, workZone);
+        if (step == null)
+            return workZone;
+
+        switch (workZone)
+        {
+            case ZoneType.Chop:
+                return ZoneType.Ingredient;
+            case ZoneType.Cook:
+                return ZoneType.Chop;
+            case ZoneType.Wok:
+                return ZoneType.Chop;
+            case ZoneType.Plate:
+                var recipe = production.GetStepForZone(recipeId, workZone);
+                if (recipeId == "stirfry")
+                    return ZoneType.Wok;
+                return ZoneType.Cook;
+            default:
+                return workZone;
         }
     }
 }

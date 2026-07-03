@@ -85,8 +85,23 @@ public class ZoneWorldUIView : MonoBehaviour
         subButton.interactable = assignService.CanRemoveWorker(zoneType);
 
         model.WorkerAssignmentChanged
-            .Subscribe(_ => addButton.interactable = assignService.CanAddWorker(zoneType))
+            .Subscribe(_ =>
+            {
+                addButton.interactable = assignService.CanAddWorker(zoneType);
+                subButton.interactable = assignService.CanRemoveWorker(zoneType);
+            })
             .AddTo(disposables);
+    }
+
+    void Update()
+    {
+        if (model == null || progressFill == null)
+            return;
+
+        var zone = model.GetZone(zoneType);
+        progressFill.fillAmount = Mathf.Clamp01(zone.TaskProgress.Value);
+        if (percentText != null)
+            percentText.text = zone.StatusText.Value;
     }
 
     static Color GetZoneColor(ZoneType type)
@@ -96,7 +111,9 @@ public class ZoneWorldUIView : MonoBehaviour
             case ZoneType.Ingredient: return new Color(0.3f, 0.75f, 0.3f);
             case ZoneType.Chop: return new Color(0.9f, 0.85f, 0.2f);
             case ZoneType.Cook: return new Color(0.95f, 0.55f, 0.15f);
+            case ZoneType.Wok: return new Color(0.8f, 0.25f, 0.2f);
             case ZoneType.Plate: return new Color(0.65f, 0.35f, 0.85f);
+            case ZoneType.Splitter: return new Color(0.45f, 0.7f, 0.85f);
             case ZoneType.Idle: return new Color(0.55f, 0.55f, 0.55f);
             default: return Color.white;
         }

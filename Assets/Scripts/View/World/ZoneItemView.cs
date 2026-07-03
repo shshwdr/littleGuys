@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class ZoneItemView : MonoBehaviour
 {
+    Transform itemTransform;
     SpriteRenderer itemRenderer;
     ZoneType zoneType;
     GameModel model;
@@ -18,6 +19,7 @@ public class ZoneItemView : MonoBehaviour
             ResourceSpriteLoader.GetFood(),
             Color.white,
             new Vector2(size, size));
+        itemTransform = itemRenderer.transform;
         itemRenderer.enabled = false;
     }
 
@@ -33,6 +35,8 @@ public class ZoneItemView : MonoBehaviour
             return;
 
         transform.position = new Vector3(zone.SharedItemPosition.x, zone.SharedItemPosition.y, -0.08f);
-        itemRenderer.color = FoodVisualColors.Get(zone.SharedItemStage);
+        itemRenderer.sprite = ResourceSpriteLoader.GetFoodVisual(zone.SharedFoodVisual);
+        itemRenderer.color = FoodVisualColors.GetTint(zone.SharedFoodVisual, zone.SharedItemStage);
+        itemTransform.rotation = Quaternion.Euler(0f, 0f, zone.WorkRotation);
     }
 }

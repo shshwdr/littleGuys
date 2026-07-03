@@ -54,12 +54,16 @@ public class CustomerSpawnService
 
     void SpawnCustomer()
     {
-        var recipe = model.ActiveRecipe.Value;
-        var orderName = recipe != null ? recipe.DisplayName : "Soup";
+        string recipeId = model.NextCustomerRecipeToggle % 2 == 0 ? "soup" : "stirfry";
+        model.NextCustomerRecipeToggle++;
+
+        var recipe = model.GetRecipe(recipeId);
+        string orderName = recipe != null ? recipe.DisplayName : recipeId;
 
         var customer = new CustomerData
         {
             Id = model.NextCustomerId++,
+            RecipeId = recipeId,
             OrderName = orderName,
             MaxPatience = model.Config.customerMaxPatience
         };

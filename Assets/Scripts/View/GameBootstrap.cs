@@ -17,6 +17,7 @@ public class GameBootstrap : MonoBehaviour
 
     readonly CompositeDisposable disposables = new CompositeDisposable();
     readonly Dictionary<CustomerData, CustomerView> customerViews = new Dictionary<CustomerData, CustomerView>();
+    readonly Dictionary<int, WorkerView> workerViews = new Dictionary<int, WorkerView>();
 
     GameModel model;
     WorldLayout layout;
@@ -24,7 +25,9 @@ public class GameBootstrap : MonoBehaviour
     WorkerAssignService assignService;
     ZoneWorkService workService;
     TransportService transportService;
-    RecipeService recipeService;
+    ProductionService productionService;
+    SplitterService splitterService;
+    WorkerGrowthService growthService;
 
     Transform worldRoot;
     Transform workerRoot;
@@ -48,11 +51,17 @@ public class GameBootstrap : MonoBehaviour
         var config = GameConfigData.Load();
         layout = new WorldLayout(config);
         model = CreateModel(config);
+        productionService = new ProductionService(model);
         customerService = new CustomerSpawnService(model);
-        assignService = new WorkerAssignService(model);
-        workService = new ZoneWorkService(model);
-        transportService = new TransportService(model, layout, customerService);
-        recipeService = new RecipeService(model);
+        splitterService = new SplitterService(model, layout);
+        assignService = new WorkerAssignService(model, splitterService);
+        workService = new ZoneWorkService(model, layout, productionService);
+        transportService = new TransportService(model, layout, customerService, productionService);
+        growthService = new WorkerGrowthService(model);
+
+        splitterService.WorkerAdded += OnWorkerAdded;
+        splitterService.WorkerRemoved += OnWorkerRemoved;
+        transportService.WorkerRemoved += OnWorkerRemoved;
 
         worldRoot = new GameObject("World").transform;
         workerRoot = new GameObject("Workers").transform;
@@ -84,6 +93,8 @@ public class GameBootstrap : MonoBehaviour
                 customerService.Tick(dt);
                 transportService.Tick(dt);
                 workService.Tick(dt);
+                splitterService.Tick(dt);
+                growthService.Tick(dt);
             })
             .AddTo(disposables);
     }
@@ -91,11 +102,14 @@ public class GameBootstrap : MonoBehaviour
     GameModel CreateModel(GameConfigData config)
     {
         var gameModel = new GameModel { Config = config };
+        gameModel.Recipes = RecipeFactory.CreateMap(config);
 
         gameModel.Zones[ZoneType.Ingredient] = new ZoneData { Type = ZoneType.Ingredient };
         gameModel.Zones[ZoneType.Chop] = new ZoneData { Type = ZoneType.Chop };
         gameModel.Zones[ZoneType.Cook] = new ZoneData { Type = ZoneType.Cook };
+        gameModel.Zones[ZoneType.Wok] = new ZoneData { Type = ZoneType.Wok };
         gameModel.Zones[ZoneType.Plate] = new ZoneData { Type = ZoneType.Plate };
+        gameModel.Zones[ZoneType.Splitter] = new ZoneData { Type = ZoneType.Splitter };
         gameModel.Zones[ZoneType.Idle] = new ZoneData { Type = ZoneType.Idle };
 
         for (int i = 0; i < config.totalWorkers; i++)
@@ -111,6 +125,7 @@ public class GameBootstrap : MonoBehaviour
             gameModel.Workers.Add(worker);
         }
 
+        gameModel.NextWorkerId = config.totalWorkers;
         gameModel.GetZone(ZoneType.Idle).WorkerCount.Value = config.totalWorkers;
         return gameModel;
     }
@@ -120,7 +135,9 @@ public class GameBootstrap : MonoBehaviour
         CreateZoneView(ZoneType.Ingredient, "Ingredient", false);
         CreateZoneView(ZoneType.Chop, "Chop", true);
         CreateZoneView(ZoneType.Cook, "Cook", true);
+        CreateZoneView(ZoneType.Wok, "Wok", true);
         CreateZoneView(ZoneType.Plate, "Plate", true);
+        CreateZoneView(ZoneType.Splitter, "Splitter", true);
         CreateZoneView(ZoneType.Idle, "Idle", false);
     }
 
@@ -135,25 +152,23 @@ public class GameBootstrap : MonoBehaviour
             view.Setup(type, model, assignService, layout.GetZonePosition(type), label);
             view.Bind(disposables);
 
-            var itemGo = new GameObject("ZoneItem");
+            var itemGo = new GameObject(type + "ZoneItem");
             itemGo.transform.SetParent(worldRoot, false);
             itemGo.AddComponent<ZoneItemView>().Setup(type, model, model.Config);
 
             if (type == ZoneType.Chop)
             {
-                var pileGo = new GameObject("ChopOutputPile");
-                pileGo.transform.SetParent(worldRoot, false);
-                pileGo.AddComponent<ZoneBufferPileView>().Setup(
-                    ZoneType.Chop, model, model.Config,
-                    layout.GetSourceItemPosition(ZoneType.Cook), FoodStage.Chopped);
+                var chopPos = layout.GetItemCenterAboveZone(ZoneType.Chop);
+                CreateBufferPile("ChopOutputPileVeg", ZoneType.Chop, chopPos, FoodStage.Chopped, FoodVisual.Veg);
+                CreateBufferPile("ChopOutputPileMeat", ZoneType.Chop, chopPos, FoodStage.Chopped, FoodVisual.Meat);
             }
             else if (type == ZoneType.Cook)
             {
-                var pileGo = new GameObject("CookOutputPile");
-                pileGo.transform.SetParent(worldRoot, false);
-                pileGo.AddComponent<ZoneBufferPileView>().Setup(
-                    ZoneType.Cook, model, model.Config,
-                    layout.GetSourceItemPosition(ZoneType.Plate), FoodStage.Cooked);
+                CreateBufferPile("CookOutputPile", ZoneType.Cook, layout.GetItemCenterAboveZone(ZoneType.Cook), FoodStage.Cooked, FoodVisual.Veg);
+            }
+            else if (type == ZoneType.Wok)
+            {
+                CreateBufferPile("WokOutputPile", ZoneType.Wok, layout.GetItemCenterAboveZone(ZoneType.Wok), FoodStage.Fried, FoodVisual.Meat);
             }
         }
         else
@@ -177,34 +192,62 @@ public class GameBootstrap : MonoBehaviour
                 ColorSpriteFactory.CreateSprite(
                     "Pile",
                     pileGo.transform,
-                    ResourceSpriteLoader.GetFood(),
-                    FoodVisualColors.Get(FoodStage.Raw),
+                    ResourceSpriteLoader.GetVeg(),
+                    Color.white,
                     new Vector2(size, size));
             }
         }
     }
 
+    void CreateBufferPile(string name, ZoneType zone, Vector2 position, FoodStage stage, FoodVisual visual)
+    {
+        var pileGo = new GameObject(name);
+        pileGo.transform.SetParent(worldRoot, false);
+        pileGo.AddComponent<ZoneBufferPileView>().Setup(zone, model, model.Config, position, stage, visual);
+    }
+
     void CreateWorkers()
     {
         foreach (var worker in model.Workers)
-        {
-            var go = new GameObject("Worker_" + worker.Id);
-            go.transform.SetParent(workerRoot, false);
-            var view = go.AddComponent<WorkerView>();
-            view.Setup(worker, model.Config);
-        }
+            OnWorkerAdded(worker);
     }
 
     void CreateUi()
     {
         var recipeGo = new GameObject("RecipePanel");
         recipeGo.transform.SetParent(transform, false);
-        recipeGo.AddComponent<RecipePanelView>()
-            .Setup(model, recipeService, RecipeFactory.CreateSoup(model.Config), disposables);
+        recipeGo.AddComponent<RecipePanelView>().Setup(
+            model,
+            productionService,
+            model.GetRecipe("soup"),
+            model.GetRecipe("stirfry"),
+            disposables);
 
         var gameOverGo = new GameObject("GameOver");
         gameOverGo.transform.SetParent(transform, false);
         gameOverGo.AddComponent<GameOverView>().Setup(model, disposables);
+    }
+
+    void OnWorkerAdded(WorkerData worker)
+    {
+        if (workerViews.ContainsKey(worker.Id))
+            return;
+
+        var go = new GameObject("Worker_" + worker.Id);
+        go.transform.SetParent(workerRoot, false);
+        var view = go.AddComponent<WorkerView>();
+        view.Setup(worker, model.Config);
+        workerViews[worker.Id] = view;
+    }
+
+    void OnWorkerRemoved(WorkerData worker)
+    {
+        if (!workerViews.TryGetValue(worker.Id, out var view))
+            return;
+
+        workerViews.Remove(worker.Id);
+        if (view != null)
+            Destroy(view.gameObject);
     }
 
     void OnCustomerAdded(CustomerData customer)
@@ -263,7 +306,7 @@ public class GameBootstrap : MonoBehaviour
         }
 
         cam.orthographic = true;
-        cam.orthographicSize = 6f;
+        cam.orthographicSize = 7.5f;
         cam.transform.position = new Vector3(0f, 0.5f, -10f);
         cam.backgroundColor = new Color(0.12f, 0.12f, 0.15f);
     }

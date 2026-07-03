@@ -1,3 +1,4 @@
+using System.Linq;
 using UnityEngine;
 
 public class ZoneBufferPileView : MonoBehaviour
@@ -6,19 +7,21 @@ public class ZoneBufferPileView : MonoBehaviour
     ZoneType sourceZone;
     GameModel model;
     FoodStage stage;
+    FoodVisual visualFilter = FoodVisual.None;
 
-    public void Setup(ZoneType upstreamZone, GameModel gameModel, GameConfigData config, Vector2 position, FoodStage pileStage)
+    public void Setup(ZoneType upstreamZone, GameModel gameModel, GameConfigData config, Vector2 position, FoodStage pileStage, FoodVisual pileVisual)
     {
         sourceZone = upstreamZone;
         model = gameModel;
         stage = pileStage;
+        visualFilter = pileVisual;
 
         float size = config.foodSpriteSize * 1.15f;
         pileRenderer = ColorSpriteFactory.CreateSprite(
             "BufferPile",
             transform,
-            ResourceSpriteLoader.GetFood(),
-            FoodVisualColors.Get(stage),
+            ResourceSpriteLoader.GetFoodVisual(pileVisual),
+            Color.white,
             new Vector2(size, size));
         transform.position = new Vector3(position.x, position.y, -0.06f);
         pileRenderer.enabled = false;
@@ -31,7 +34,16 @@ public class ZoneBufferPileView : MonoBehaviour
 
         var zone = model.GetZone(sourceZone);
         bool carryingAway = zone.HasSharedItem && zone.Phase != ZonePhase.Working;
-        pileRenderer.enabled = zone.OutputBuffer > 0 && !carryingAway;
-        pileRenderer.color = FoodVisualColors.Get(stage);
+        var item = zone.OutputItems.FirstOrDefault(output =>
+            output.Stage == stage &&
+            (visualFilter == FoodVisual.None || output.Visual == visualFilter));
+        bool hasItem = item != null;
+        pileRenderer.enabled = hasItem && !carryingAway;
+
+        if (!hasItem)
+            return;
+
+        pileRenderer.sprite = ResourceSpriteLoader.GetFoodVisual(item.Visual);
+        pileRenderer.color = Color.white;
     }
 }

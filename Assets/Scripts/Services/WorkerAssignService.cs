@@ -4,10 +4,12 @@ using UniRx;
 public class WorkerAssignService
 {
     readonly GameModel model;
+    readonly SplitterService splitterService;
 
-    public WorkerAssignService(GameModel model)
+    public WorkerAssignService(GameModel model, SplitterService splitterService)
     {
         this.model = model;
+        this.splitterService = splitterService;
     }
 
     public bool CanAddWorker(ZoneType zone)
@@ -19,7 +21,7 @@ public class WorkerAssignService
         if (zoneData.WorkerCount.Value >= model.Config.maxWorkersPerZone)
             return false;
 
-        return model.Workers.Any(w => w.AssignedZone == ZoneType.Idle);
+        return model.Workers.Any(w => w.AssignedZone == ZoneType.Idle && w.CanAssign);
     }
 
     public bool CanRemoveWorker(ZoneType zone)
@@ -27,7 +29,18 @@ public class WorkerAssignService
         if (zone == ZoneType.Ingredient || zone == ZoneType.Idle)
             return false;
 
-        return model.GetZone(zone).WorkerCount.Value > 0;
+        int count = model.Workers.Count(w => w.AssignedZone == zone);
+        if (count <= 0)
+            return false;
+
+        if (zone == ZoneType.Splitter && splitterService.IsSplitting())
+            return count > 1;
+
+        var zoneData = model.GetZone(zone);
+        if (zoneData.Phase == ZonePhase.Working && zoneData.ConsumeWorkerAsInput)
+            return count > 1;
+
+        return true;
     }
 
     public void TryAddWorker(ZoneType zone)
@@ -35,7 +48,7 @@ public class WorkerAssignService
         if (!CanAddWorker(zone))
             return;
 
-        var worker = model.Workers.First(w => w.AssignedZone == ZoneType.Idle);
+        var worker = model.Workers.First(w => w.AssignedZone == ZoneType.Idle && w.CanAssign);
         AssignWorkerToZone(worker, zone);
     }
 
@@ -60,6 +73,7 @@ public class WorkerAssignService
         worker.AssignedZone = zone;
         worker.HasArrivedAtZone = false;
         worker.HasJoinedLift = false;
+        worker.WorkRotation = 0f;
         worker.State = WorkerState.WalkingToZone;
 
         if (zone != ZoneType.Idle)
@@ -69,16 +83,5 @@ public class WorkerAssignService
             model.Workers.Count(w => w.AssignedZone == ZoneType.Idle);
 
         model.WorkerAssignmentChanged.OnNext(Unit.Default);
-    }
-
-    public void RefreshZoneCounts()
-    {
-        foreach (var pair in model.Zones)
-        {
-            if (pair.Key == ZoneType.Ingredient || pair.Key == ZoneType.Idle)
-                continue;
-
-            pair.Value.WorkerCount.Value = model.Workers.Count(w => w.AssignedZone == pair.Key);
-        }
     }
 }

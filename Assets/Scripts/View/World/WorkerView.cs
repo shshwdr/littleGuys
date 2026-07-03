@@ -3,18 +3,24 @@ using UnityEngine;
 public class WorkerView : MonoBehaviour
 {
     WorkerData worker;
-    SpriteRenderer bodyRenderer;
+    GameConfigData config;
+    Transform bodyTransform;
+    float baseScale = 0.4f;
 
-    public void Setup(WorkerData data, GameConfigData config)
+    public void Setup(WorkerData data, GameConfigData gameConfig)
     {
         worker = data;
-        bodyRenderer = ColorSpriteFactory.CreateSprite(
+        config = gameConfig;
+
+        var renderer = ColorSpriteFactory.CreateSprite(
             "Body",
             transform,
             ResourceSpriteLoader.GetMinion(),
             Color.white,
-            new Vector2(0.4f, 0.4f));
+            Vector2.one);
+        bodyTransform = renderer.transform;
         transform.position = worker.Position;
+        RefreshScale();
     }
 
     void Update()
@@ -23,5 +29,13 @@ public class WorkerView : MonoBehaviour
             return;
 
         transform.position = new Vector3(worker.Position.x, worker.Position.y, 0f);
+        bodyTransform.rotation = Quaternion.Euler(0f, 0f, worker.WorkRotation);
+        RefreshScale();
+    }
+
+    void RefreshScale()
+    {
+        float sizeScale = worker.IsSmall ? config.smallWorkerScale : 1f;
+        bodyTransform.localScale = new Vector3(baseScale * sizeScale, baseScale * sizeScale, 1f);
     }
 }

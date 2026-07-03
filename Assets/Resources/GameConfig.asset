@@ -14,17 +14,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   totalWorkers: 10
   maxWorkersPerZone: 5
-  workerMoveSpeed: 1
-  carryMoveSpeedDivisor: 10
+  workerMoveSpeed: 2
+  carryMoveSpeedDivisor: 20
+  smallWorkerGrowTime: 10
+  smallWorkerScale: 0.5
   chopDuration: 10
   cookDuration: 15
+  wokDuration: 20
   plateDuration: 5
+  splitterDuration: 20
   maxCustomers: 5
   customerSpawnInterval: 30
   customerMaxPatience: 100
-  patienceDecayPerSecond: 1
+  patienceDecayPerSecond: 0.5
   workerSpacing: 0.35
   carryYOffset: 0.5
   arriveThreshold: 0.05
   foodSpriteSize: 0.75
   sourceFetchOffsetY: 0.9
+  workRotationSpeed: 180

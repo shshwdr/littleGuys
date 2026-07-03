@@ -28,14 +28,27 @@ public static class WorldUiFactory
         return canvas;
     }
 
+    static Sprite squareSprite;
+
+    static Sprite GetSquareSprite()
+    {
+        if (squareSprite == null)
+            squareSprite = ResourceSpriteLoader.GetSquare();
+        return squareSprite;
+    }
+
     public static Image CreateFillBar(Transform parent, string name, Vector2 anchoredPos, Vector2 size, Color fillColor)
     {
+        var sprite = GetSquareSprite();
+
         var bgGo = new GameObject(name + "_Bg");
         bgGo.transform.SetParent(parent, false);
         var bgRect = bgGo.AddComponent<RectTransform>();
         bgRect.sizeDelta = size;
         bgRect.anchoredPosition = anchoredPos;
         var bgImage = bgGo.AddComponent<Image>();
+        bgImage.sprite = sprite;
+        bgImage.type = Image.Type.Simple;
         bgImage.color = new Color(0.2f, 0.2f, 0.2f, 0.9f);
         bgImage.raycastTarget = false;
 
@@ -47,10 +60,12 @@ public static class WorldUiFactory
         fillRect.offsetMin = Vector2.zero;
         fillRect.offsetMax = Vector2.zero;
         var fillImage = fillGo.AddComponent<Image>();
-        fillImage.color = fillColor;
+        fillImage.sprite = sprite;
         fillImage.type = Image.Type.Filled;
         fillImage.fillMethod = Image.FillMethod.Horizontal;
-        fillImage.fillAmount = 1f;
+        fillImage.fillOrigin = (int)Image.OriginHorizontal.Left;
+        fillImage.fillAmount = 0f;
+        fillImage.color = fillColor;
         fillImage.raycastTarget = false;
 
         return fillImage;

@@ -35,4 +35,12 @@ public class CustomerView : MonoBehaviour
 
         orderText.text = customer.OrderName;
     }
+
+    void Update()
+    {
+        if (customer == null || patienceFill == null)
+            return;
+
+        patienceFill.fillAmount = Mathf.Clamp01(customer.Patience.Value / customer.MaxPatience);
+    }
 }
