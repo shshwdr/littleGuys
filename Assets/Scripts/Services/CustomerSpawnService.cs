@@ -106,7 +106,6 @@ public class CustomerSpawnService
         model.Gold.Value += customer.ReceivedSatiety;
         model.Customers.Remove(customer);
         model.ServedCustomerCount++;
-        CheckUnlocks();
     }
 
     public void AddSatiety(CustomerData customer, int satiety)
@@ -119,28 +118,4 @@ public class CustomerSpawnService
             ServeCustomer(customer);
     }
 
-    void CheckUnlocks()
-    {
-        if (model.ServedCustomerCount >= 1 && model.UnlockedRecipes.Add("vegsoup"))
-        {
-            UnlockZone(ZoneType.Cook);
-            model.RecipeUnlocked.OnNext("vegsoup");
-        }
-
-        if (model.ServedCustomerCount >= 3 && model.UnlockedRecipes.Add("stirfry"))
-        {
-            UnlockZone(ZoneType.Wok);
-            model.RecipeUnlocked.OnNext("stirfry");
-        }
-    }
-
-    void UnlockZone(ZoneType zoneType)
-    {
-        var zone = model.GetZone(zoneType);
-        if (zone.IsUnlocked)
-            return;
-
-        zone.IsUnlocked = true;
-        model.ZoneUnlocked.OnNext(zoneType);
-    }
 }

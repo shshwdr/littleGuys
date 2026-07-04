@@ -13,6 +13,9 @@ public class GameBootstrap : MonoBehaviour
         if (FindObjectOfType<GameBootstrap>() != null)
             return;
 
+        if (!SceneFlowService.IsMainGameScene())
+            return;
+
         var go = new GameObject("GameBootstrap");
         go.AddComponent<GameBootstrap>();
     }
@@ -50,10 +53,12 @@ public class GameBootstrap : MonoBehaviour
 
     void BuildGame()
     {
-        var config = GameConfigData.Load();
+        var metaSave = MetaSaveService.Load();
+        var baseConfig = GameConfigData.Load();
+        var config = MetaSaveService.ApplyUpgrades(baseConfig, metaSave);
         layout = new WorldLayout(config);
         layout.RegisterFromScene();
-        model = CreateModel(config);
+        model = CreateModel(config, metaSave);
         productionService = new ProductionService(model);
         customerService = new CustomerSpawnService(model, layout);
         splitterService = new SplitterService(model, layout);
@@ -103,9 +108,18 @@ public class GameBootstrap : MonoBehaviour
                 sacrificeService.Tick(dt);
             })
             .AddTo(disposables);
+
+        Observable.EveryUpdate()
+            .Where(_ => Input.GetKeyDown(KeyCode.S))
+            .Subscribe(_ =>
+            {
+                MetaSaveService.Reset();
+                SceneFlowService.LoadMainGame();
+            })
+            .AddTo(disposables);
     }
 
-    GameModel CreateModel(GameConfigData config)
+    GameModel CreateModel(GameConfigData config, MetaSaveData metaSave)
     {
         var gameModel = new GameModel { Config = config };
         gameModel.Recipes = RecipeFactory.CreateMap(config);
@@ -114,7 +128,9 @@ public class GameBootstrap : MonoBehaviour
         foreach (var zonePrefab in layout.GetSceneZones())
         {
             bool unlocked = zonePrefab.StartsUnlocked;
-            if (zonePrefab.ZoneType == ZoneType.Cook || zonePrefab.ZoneType == ZoneType.Wok)
+            if (zonePrefab.ZoneType == ZoneType.Cook
+                || zonePrefab.ZoneType == ZoneType.Wok
+                || zonePrefab.ZoneType == ZoneType.Splitter)
                 unlocked = false;
 
             gameModel.Zones[zonePrefab.ZoneType] = new ZoneData
@@ -125,6 +141,7 @@ public class GameBootstrap : MonoBehaviour
         }
 
         EnsureDefaultZones(gameModel);
+        MetaSaveService.ApplyUnlocks(gameModel, metaSave);
 
         for (int i = 0; i < config.totalWorkers; i++)
         {
@@ -157,7 +174,7 @@ public class GameBootstrap : MonoBehaviour
         Ensure(ZoneType.Cook, false);
         Ensure(ZoneType.Wok, false);
         Ensure(ZoneType.Plate, true);
-        Ensure(ZoneType.Splitter, true);
+        Ensure(ZoneType.Splitter, false);
         Ensure(ZoneType.Idle, true);
     }
 
@@ -190,10 +207,6 @@ public class GameBootstrap : MonoBehaviour
 
     void CreateUi()
     {
-        var recipeGo = new GameObject("RecipePanel");
-        recipeGo.transform.SetParent(transform, false);
-        recipeGo.AddComponent<RecipePanelView>().Setup(model, productionService, disposables);
-
         var hudGo = new GameObject("GameHud");
         hudGo.transform.SetParent(transform, false);
         hudGo.AddComponent<GameHudView>().Setup(model, disposables);
