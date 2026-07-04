@@ -43,4 +43,13 @@ public class GameModel
     {
         WorkerAssignmentChanged.OnNext(Unit.Default);
     }
+
+    public void SetZonePhase(ZoneData zone, ZonePhase phase)
+    {
+        if (zone.Phase == phase)
+            return;
+
+        zone.Phase = phase;
+        NotifyWorkerAssignmentChanged();
+    }
 }

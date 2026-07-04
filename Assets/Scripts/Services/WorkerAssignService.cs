@@ -24,7 +24,21 @@ public class WorkerAssignService
         if (zoneData.WorkerCount.Value >= model.Config.maxWorkersPerZone)
             return false;
 
-        return model.Workers.Any(w => w.AssignedZone == ZoneType.Idle && w.CanAssign);
+        return model.Workers.Any(w => IsWorkerAvailableForAssign(w, zone));
+    }
+
+    bool IsWorkerAvailableForAssign(WorkerData worker, ZoneType targetZone)
+    {
+        if (!worker.CanAssign)
+            return false;
+
+        if (worker.AssignedZone == ZoneType.Idle)
+            return true;
+
+        if (worker.AssignedZone == targetZone || worker.AssignedZone == ZoneType.Ingredient)
+            return false;
+
+        return model.GetZone(worker.AssignedZone).Phase == ZonePhase.Idle;
     }
 
     public bool CanRemoveWorker(ZoneType zone)
@@ -54,7 +68,8 @@ public class WorkerAssignService
         if (!CanAddWorker(zone))
             return;
 
-        var worker = model.Workers.First(w => w.AssignedZone == ZoneType.Idle && w.CanAssign);
+        var worker = model.Workers.FirstOrDefault(w => w.AssignedZone == ZoneType.Idle && w.CanAssign)
+            ?? model.Workers.First(w => IsWorkerAvailableForAssign(w, zone));
         AssignWorkerToZone(worker, zone);
     }
 

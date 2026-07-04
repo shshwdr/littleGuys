@@ -92,7 +92,7 @@ public class ZoneWorkService
 
         ZoneOutputStore.Add(zone, zone.CurrentOrderId, zone.CurrentRecipeId, zone.StepOutput, zone.StepOutputVisual);
         ClearSharedItem(zone);
-        zone.Phase = ZonePhase.Idle;
+        model.SetZonePhase(zone, ZonePhase.Idle);
         zone.StatusText.Value = "0%";
         production.CompleteZoneStep(zone, type);
     }

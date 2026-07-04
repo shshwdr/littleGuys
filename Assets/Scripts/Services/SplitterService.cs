@@ -38,7 +38,7 @@ public class SplitterService
             return;
         }
 
-        zone.Phase = ZonePhase.Idle;
+        model.SetZonePhase(zone, ZonePhase.Idle);
         ClearMaterial(zone);
 
         if (workers.Count < 2)
@@ -99,7 +99,7 @@ public class SplitterService
             return;
 
         zone.TaskProgress.Value = 0f;
-        zone.Phase = ZonePhase.Idle;
+        model.SetZonePhase(zone, ZonePhase.Idle);
         zone.StatusText.Value = "Done";
         zone.WorkRotation = 0f;
         ClearMaterial(zone);
@@ -120,7 +120,7 @@ public class SplitterService
 
         zone.HasActiveStep = true;
         zone.BaseDuration = model.Config.splitterDuration;
-        zone.Phase = ZonePhase.Working;
+        model.SetZonePhase(zone, ZonePhase.Working);
         zone.TaskProgress.Value = 0f;
         zone.StatusText.Value = "0%";
         zone.WorkRotation = 0f;

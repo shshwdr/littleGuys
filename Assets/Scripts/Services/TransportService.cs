@@ -65,7 +65,7 @@ public class TransportService
         var workers = GetZoneWorkers(type);
         if (workers.Count == 0)
         {
-            zone.Phase = ZonePhase.Idle;
+            model.SetZonePhase(zone, ZonePhase.Idle);
             production.CancelActiveTask(zone, type);
             ClearSharedItem(zone);
             return;
@@ -130,7 +130,7 @@ public class TransportService
         zone.SharedItemStage = zone.StepInput;
         zone.SharedFoodVisual = zone.StepInputVisual;
         zone.SharedItemPosition = layout.GetInputPosition(type);
-        zone.Phase = ZonePhase.Working;
+        model.SetZonePhase(zone, ZonePhase.Working);
         zone.TaskProgress.Value = 0f;
         zone.StatusText.Value = "0%";
         zone.WorkRotation = 0f;
@@ -141,7 +141,7 @@ public class TransportService
 
     void BeginFetch(ZoneData zone, ZoneType type)
     {
-        zone.Phase = ZonePhase.GoingToSource;
+        model.SetZonePhase(zone, ZonePhase.GoingToSource);
         zone.SharedMoveTarget = GetFetchItemPosition(type, zone);
         foreach (var worker in GetZoneWorkers(type))
         {
@@ -167,7 +167,7 @@ public class TransportService
         if (!TakeOneFromSource(type, zone, out var visual))
         {
             ClearSharedItem(zone);
-            zone.Phase = ZonePhase.Idle;
+            model.SetZonePhase(zone, ZonePhase.Idle);
             production.CancelActiveTask(zone, type);
             return;
         }
@@ -177,7 +177,7 @@ public class TransportService
         zone.SharedFoodVisual = visual;
         zone.SharedItemPosition = layout.ElevateCarriedItem(gatherItemPos);
         zone.SharedMoveTarget = layout.GetInputPosition(type);
-        zone.Phase = ZonePhase.Returning;
+        model.SetZonePhase(zone, ZonePhase.Returning);
 
         foreach (var worker in workers)
         {
@@ -260,7 +260,7 @@ public class TransportService
     {
         zone.DeliveryCustomer = null;
         ClearSharedItem(zone);
-        zone.Phase = ZonePhase.Idle;
+        model.SetZonePhase(zone, ZonePhase.Idle);
         zone.CurrentOrderId = 0;
         zone.CurrentRecipeId = null;
     }
@@ -284,7 +284,7 @@ public class TransportService
 
         if (zone.Phase == ZonePhase.Returning && HasReached(zone.SharedItemPosition, zone.SharedMoveTarget))
         {
-            zone.Phase = ZonePhase.Working;
+            model.SetZonePhase(zone, ZonePhase.Working);
             zone.TaskProgress.Value = 0f;
             zone.StatusText.Value = "0%";
             zone.WorkRotation = 0f;
@@ -314,7 +314,7 @@ public class TransportService
         zone.SharedItemPosition = layout.ElevateCarriedItem(layout.GetOutputPosition(type));
         zone.CurrentRecipeId = item.RecipeId;
         zone.CurrentOrderId = item.OrderId;
-        zone.Phase = ZonePhase.Delivering;
+        model.SetZonePhase(zone, ZonePhase.Delivering);
 
         foreach (var worker in workers)
         {
