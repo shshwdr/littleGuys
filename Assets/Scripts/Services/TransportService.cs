@@ -102,7 +102,7 @@ public class TransportService
         if (TryStartDelivery(zone, type, workers))
             return;
 
-        if (!production.TryActivateNextReadyTask(zone, type))
+        if (!production.TryActivateActiveTask(zone, type))
             return;
 
         if (zone.SpawnInputInZone)

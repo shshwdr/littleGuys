@@ -115,11 +115,16 @@ public class RecipePanelView : MonoBehaviour
         if (queueText == null || model == null)
             return;
 
+        string activeName = "None";
+        string activeId = model.ActiveRecipeId.Value;
+        if (!string.IsNullOrEmpty(activeId))
+        {
+            var recipe = model.GetRecipe(activeId);
+            if (recipe != null)
+                activeName = recipe.DisplayName;
+        }
+
         int orderCount = model.ProductionOrders.Count;
-        int chopQ = model.GetZone(ZoneType.Chop).TaskQueue.Count;
-        int cookQ = model.GetZone(ZoneType.Cook).TaskQueue.Count;
-        int wokQ = model.GetZone(ZoneType.Wok).TaskQueue.Count;
-        int plateQ = model.GetZone(ZoneType.Plate).TaskQueue.Count;
-        queueText.text = $"Orders: {orderCount} | Chop:{chopQ} Cook:{cookQ} Wok:{wokQ} Plate:{plateQ}";
+        queueText.text = $"Active: {activeName} | In progress: {orderCount}";
     }
 }

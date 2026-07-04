@@ -103,6 +103,11 @@ public static class ZoneOutputStore
         return true;
     }
 
+    public static ZoneOutputItem PeekAvailable(ZoneData zone, string recipeId, FoodStage stage, int orderId = -1)
+    {
+        return FindAvailable(zone, recipeId, stage, orderId);
+    }
+
     public static bool Has(ZoneData zone, FoodStage stage, string recipeId = null, int orderId = -1)
     {
         return FindAvailable(zone, recipeId, stage, orderId) != null;
