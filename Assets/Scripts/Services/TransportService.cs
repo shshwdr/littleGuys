@@ -80,7 +80,7 @@ public class TransportService
                 TickGoingToSource(zone, type, workers, dt);
                 break;
             case ZonePhase.Returning:
-                TickCarrying(zone, type, workers, dt, layout.GetItemCenterAboveZone(type), "Returning");
+                TickCarrying(zone, type, workers, dt, layout.GetInputPosition(type), "Returning");
                 break;
             case ZonePhase.Working:
                 MoveWorkersToZoneSlots(workers, type, dt);
@@ -129,7 +129,7 @@ public class TransportService
         zone.HasSharedItem = true;
         zone.SharedItemStage = zone.StepInput;
         zone.SharedFoodVisual = zone.StepInputVisual;
-        zone.SharedItemPosition = layout.GetWorkItemPosition(type);
+        zone.SharedItemPosition = layout.GetInputPosition(type);
         zone.Phase = ZonePhase.Working;
         zone.TaskProgress.Value = 0f;
         zone.StatusText.Value = "0%";
@@ -158,6 +158,7 @@ public class TransportService
         zone.WorkSpeed.Value = model.Config.workerMoveSpeed;
 
         Vector2 gatherItemPos = zone.SharedMoveTarget;
+        ShowSourcePreview(zone, type, gatherItemPos);
         MoveWorkersToLiftFormation(workers, gatherItemPos, dt, joinLift: false);
 
         if (!AllReadyWorkersAtFormation(workers, gatherItemPos))
@@ -165,6 +166,7 @@ public class TransportService
 
         if (!TakeOneFromSource(type, zone, out var visual))
         {
+            ClearSharedItem(zone);
             zone.Phase = ZonePhase.Idle;
             production.CancelActiveTask(zone, type);
             return;
@@ -174,7 +176,7 @@ public class TransportService
         zone.SharedItemStage = zone.StepInput;
         zone.SharedFoodVisual = visual;
         zone.SharedItemPosition = layout.ElevateCarriedItem(gatherItemPos);
-        zone.SharedMoveTarget = layout.GetCarriedItemPosition(type);
+        zone.SharedMoveTarget = layout.GetInputPosition(type);
         zone.Phase = ZonePhase.Returning;
 
         foreach (var worker in workers)
@@ -182,6 +184,36 @@ public class TransportService
             worker.HasJoinedLift = worker.State != WorkerState.WalkingToZone;
             worker.PositionLocked = false;
         }
+    }
+
+    void ShowSourcePreview(ZoneData zone, ZoneType type, Vector2 gatherItemPos)
+    {
+        if (type == ZoneType.Chop && !zone.ConsumeWorkerAsInput)
+        {
+            zone.HasSharedItem = true;
+            zone.SharedItemStage = FoodStage.Raw;
+            zone.SharedFoodVisual = FoodVisual.Veg;
+            zone.SharedItemPosition = gatherItemPos;
+            return;
+        }
+
+        string recipeId = zone.CurrentRecipeId;
+        var upstream = production.GetUpstreamZone(type, recipeId);
+        var upstreamZone = model.GetZone(upstream);
+        var step = production.GetStepForZone(recipeId, type);
+        var stage = step != null ? step.Input : FoodStage.None;
+
+        var peek = ZoneOutputStore.PeekAvailable(upstreamZone, recipeId, stage, zone.CurrentOrderId);
+        if (peek == null)
+        {
+            ClearSharedItem(zone);
+            return;
+        }
+
+        zone.HasSharedItem = true;
+        zone.SharedItemStage = peek.Stage;
+        zone.SharedFoodVisual = peek.Visual;
+        zone.SharedItemPosition = gatherItemPos;
     }
 
     void TickCarrying(ZoneData zone, ZoneType type, List<WorkerData> workers, float dt, Vector2 target, string status)
@@ -206,7 +238,8 @@ public class TransportService
             return;
         }
 
-        Vector2 target = layout.GetCustomerPosition(customerIndex, model.Customers.Count) + new Vector2(0f, model.Config.carryYOffset * 0.5f);
+        Vector2 target = layout.GetCustomerDeliveryPosition(customerIndex, model.Customers.Count)
+            + new Vector2(0f, model.Config.carryYOffset * 0.5f);
         TickCarrying(zone, type, workers, dt, target, "Delivering");
 
         if (!HasReached(zone.SharedItemPosition, target))
@@ -276,7 +309,7 @@ public class TransportService
         zone.HasSharedItem = true;
         zone.SharedItemStage = item.Stage;
         zone.SharedFoodVisual = item.Visual;
-        zone.SharedItemPosition = layout.ElevateCarriedItem(layout.GetCarriedItemPosition(type));
+        zone.SharedItemPosition = layout.ElevateCarriedItem(layout.GetOutputPosition(type));
         zone.CurrentRecipeId = item.RecipeId;
         zone.CurrentOrderId = item.OrderId;
         zone.Phase = ZonePhase.Delivering;
@@ -320,10 +353,10 @@ public class TransportService
         string recipeId = zone.CurrentRecipeId;
 
         if (type == ZoneType.Chop && !zone.ConsumeWorkerAsInput)
-            return layout.GetSourceItemPosition(ZoneType.Chop);
+            return layout.GetOutputPosition(ZoneType.Ingredient);
 
         var upstream = production.GetUpstreamZone(type, recipeId);
-        return layout.GetItemCenterAboveZone(upstream);
+        return layout.GetOutputPosition(upstream);
     }
 
     void MoveWorkersToLiftFormation(List<WorkerData> workers, Vector2 objectCenter, float dt, bool joinLift)

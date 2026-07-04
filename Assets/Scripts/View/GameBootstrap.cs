@@ -5,6 +5,8 @@ using UnityEngine.EventSystems;
 
 public class GameBootstrap : MonoBehaviour
 {
+    [SerializeField] GameObject customerPrefab;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoCreate()
     {
@@ -18,7 +20,7 @@ public class GameBootstrap : MonoBehaviour
     readonly CompositeDisposable disposables = new CompositeDisposable();
     readonly Dictionary<CustomerData, CustomerView> customerViews = new Dictionary<CustomerData, CustomerView>();
     readonly Dictionary<int, WorkerView> workerViews = new Dictionary<int, WorkerView>();
-    readonly HashSet<ZoneType> createdZoneViews = new HashSet<ZoneType>();
+    readonly HashSet<ZoneType> boundZonePrefabs = new HashSet<ZoneType>();
 
     GameModel model;
     WorldLayout layout;
@@ -31,9 +33,7 @@ public class GameBootstrap : MonoBehaviour
     WorkerGrowthService growthService;
     CustomerSacrificeService sacrificeService;
 
-    Transform worldRoot;
     Transform workerRoot;
-    Transform customerRoot;
 
     void Awake()
     {
@@ -52,9 +52,10 @@ public class GameBootstrap : MonoBehaviour
     {
         var config = GameConfigData.Load();
         layout = new WorldLayout(config);
+        layout.RegisterFromScene();
         model = CreateModel(config);
         productionService = new ProductionService(model);
-        customerService = new CustomerSpawnService(model);
+        customerService = new CustomerSpawnService(model, layout);
         splitterService = new SplitterService(model, layout);
         assignService = new WorkerAssignService(model, splitterService);
         workService = new ZoneWorkService(model, layout, productionService);
@@ -67,18 +68,14 @@ public class GameBootstrap : MonoBehaviour
         transportService.WorkerRemoved += OnWorkerRemoved;
         sacrificeService.WorkerRemoved += OnWorkerRemoved;
 
-        worldRoot = new GameObject("World").transform;
         workerRoot = new GameObject("Workers").transform;
-        workerRoot.SetParent(worldRoot, false);
-        customerRoot = new GameObject("Customers").transform;
-        customerRoot.SetParent(worldRoot, false);
 
-        CreateZones();
+        BindSceneZones();
         CreateWorkers();
         CreateUi();
 
         model.ZoneUnlocked
-            .Subscribe(zoneType => CreateZoneViewIfNeeded(zoneType))
+            .Subscribe(zoneType => BindZonePrefabIfNeeded(zoneType))
             .AddTo(disposables);
 
         model.Customers.ObserveAdd()
@@ -114,13 +111,20 @@ public class GameBootstrap : MonoBehaviour
         gameModel.Recipes = RecipeFactory.CreateMap(config);
         gameModel.UnlockedRecipes.Add("vegsalad");
 
-        gameModel.Zones[ZoneType.Ingredient] = new ZoneData { Type = ZoneType.Ingredient };
-        gameModel.Zones[ZoneType.Chop] = new ZoneData { Type = ZoneType.Chop };
-        gameModel.Zones[ZoneType.Cook] = new ZoneData { Type = ZoneType.Cook, IsUnlocked = false };
-        gameModel.Zones[ZoneType.Wok] = new ZoneData { Type = ZoneType.Wok, IsUnlocked = false };
-        gameModel.Zones[ZoneType.Plate] = new ZoneData { Type = ZoneType.Plate };
-        gameModel.Zones[ZoneType.Splitter] = new ZoneData { Type = ZoneType.Splitter };
-        gameModel.Zones[ZoneType.Idle] = new ZoneData { Type = ZoneType.Idle };
+        foreach (var zonePrefab in layout.GetSceneZones())
+        {
+            bool unlocked = zonePrefab.StartsUnlocked;
+            if (zonePrefab.ZoneType == ZoneType.Cook || zonePrefab.ZoneType == ZoneType.Wok)
+                unlocked = false;
+
+            gameModel.Zones[zonePrefab.ZoneType] = new ZoneData
+            {
+                Type = zonePrefab.ZoneType,
+                IsUnlocked = unlocked
+            };
+        }
+
+        EnsureDefaultZones(gameModel);
 
         for (int i = 0; i < config.totalWorkers; i++)
         {
@@ -140,101 +144,42 @@ public class GameBootstrap : MonoBehaviour
         return gameModel;
     }
 
-    void CreateZones()
+    static void EnsureDefaultZones(GameModel gameModel)
     {
-        CreateZoneView(ZoneType.Ingredient, "Ingredient", false);
-        CreateZoneView(ZoneType.Chop, "Chop", true);
-        CreateZoneView(ZoneType.Plate, "Plate", true);
-        CreateZoneView(ZoneType.Splitter, "Splitter", true);
-        CreateZoneView(ZoneType.Idle, "Idle", false);
+        void Ensure(ZoneType type, bool unlocked)
+        {
+            if (!gameModel.Zones.ContainsKey(type))
+                gameModel.Zones[type] = new ZoneData { Type = type, IsUnlocked = unlocked };
+        }
+
+        Ensure(ZoneType.Ingredient, true);
+        Ensure(ZoneType.Chop, true);
+        Ensure(ZoneType.Cook, false);
+        Ensure(ZoneType.Wok, false);
+        Ensure(ZoneType.Plate, true);
+        Ensure(ZoneType.Splitter, true);
+        Ensure(ZoneType.Idle, true);
     }
 
-    void CreateZoneViewIfNeeded(ZoneType type)
+    void BindSceneZones()
     {
-        if (!model.GetZone(type).IsUnlocked || createdZoneViews.Contains(type))
-            return;
-
-        switch (type)
-        {
-            case ZoneType.Cook:
-                CreateZoneView(ZoneType.Cook, "Cook", true);
-                break;
-            case ZoneType.Wok:
-                CreateZoneView(ZoneType.Wok, "Wok", true);
-                break;
-        }
+        foreach (var zonePrefab in layout.GetSceneZones())
+            BindZonePrefabIfNeeded(zonePrefab.ZoneType);
     }
 
-    void CreateZoneView(ZoneType type, string label, bool withControls)
+    void BindZonePrefabIfNeeded(ZoneType type)
     {
-        if (withControls && !model.GetZone(type).IsUnlocked)
+        if (boundZonePrefabs.Contains(type))
             return;
 
-        if (createdZoneViews.Contains(type))
+        if (!layout.TryGetZonePrefab(type, out var zonePrefab))
             return;
 
-        createdZoneViews.Add(type);
-        var go = new GameObject(label + "Zone");
-        go.transform.SetParent(worldRoot, false);
+        if (!model.GetZone(type).IsUnlocked)
+            return;
 
-        if (withControls)
-        {
-            var view = go.AddComponent<ZoneWorldUIView>();
-            view.Setup(type, model, assignService, layout.GetZonePosition(type), label);
-            view.Bind(disposables);
-
-            var itemGo = new GameObject(type + "ZoneItem");
-            itemGo.transform.SetParent(worldRoot, false);
-            itemGo.AddComponent<ZoneItemView>().Setup(type, model, model.Config);
-
-            if (type == ZoneType.Chop)
-            {
-                var chopPos = layout.GetItemCenterAboveZone(ZoneType.Chop);
-                CreateBufferPile("ChopOutputPileVeg", ZoneType.Chop, chopPos, FoodStage.Chopped, FoodVisual.Veg);
-                CreateBufferPile("ChopOutputPileMeat", ZoneType.Chop, chopPos, FoodStage.Chopped, FoodVisual.Meat);
-            }
-            else if (type == ZoneType.Cook)
-            {
-                CreateBufferPile("CookOutputPile", ZoneType.Cook, layout.GetItemCenterAboveZone(ZoneType.Cook), FoodStage.Cooked, FoodVisual.Veg);
-            }
-            else if (type == ZoneType.Wok)
-            {
-                CreateBufferPile("WokOutputPile", ZoneType.Wok, layout.GetItemCenterAboveZone(ZoneType.Wok), FoodStage.Fried, FoodVisual.Meat);
-            }
-        }
-        else
-        {
-            go.transform.position = layout.GetZonePosition(type);
-            var color = type == ZoneType.Ingredient
-                ? new Color(0.3f, 0.75f, 0.3f)
-                : new Color(0.55f, 0.55f, 0.55f);
-            ColorSpriteFactory.CreateSquare("Zone", go.transform, color, new Vector2(1.6f, 1.2f));
-
-            var canvas = WorldUiFactory.CreateWorldCanvas(go.transform, new Vector3(0f, 1.1f, 0f), new Vector2(220f, 60f));
-            WorldUiFactory.CreateText(canvas.transform, "Title", label, Vector2.zero, 26f, TMPro.TextAlignmentOptions.Center);
-
-            if (type == ZoneType.Ingredient)
-            {
-                float size = model.Config.foodSpriteSize * 1.2f;
-                var pilePos = layout.GetSourceItemPosition(ZoneType.Chop);
-                var pileGo = new GameObject("IngredientPile");
-                pileGo.transform.position = new Vector3(pilePos.x, pilePos.y, -0.06f);
-                pileGo.transform.SetParent(worldRoot, false);
-                ColorSpriteFactory.CreateSprite(
-                    "Pile",
-                    pileGo.transform,
-                    ResourceSpriteLoader.GetVeg(),
-                    Color.white,
-                    new Vector2(size, size));
-            }
-        }
-    }
-
-    void CreateBufferPile(string name, ZoneType zone, Vector2 position, FoodStage stage, FoodVisual visual)
-    {
-        var pileGo = new GameObject(name);
-        pileGo.transform.SetParent(worldRoot, false);
-        pileGo.AddComponent<ZoneBufferPileView>().Setup(zone, model, model.Config, position, stage, visual);
+        boundZonePrefabs.Add(type);
+        zonePrefab.Setup(model, assignService, disposables);
     }
 
     void CreateWorkers()
@@ -248,6 +193,10 @@ public class GameBootstrap : MonoBehaviour
         var recipeGo = new GameObject("RecipePanel");
         recipeGo.transform.SetParent(transform, false);
         recipeGo.AddComponent<RecipePanelView>().Setup(model, productionService, disposables);
+
+        var hudGo = new GameObject("GameHud");
+        hudGo.transform.SetParent(transform, false);
+        hudGo.AddComponent<GameHudView>().Setup(model, disposables);
 
         var gameOverGo = new GameObject("GameOver");
         gameOverGo.transform.SetParent(transform, false);
@@ -279,14 +228,26 @@ public class GameBootstrap : MonoBehaviour
 
     void OnCustomerAdded(CustomerData customer)
     {
-        int index = model.Customers.IndexOf(customer);
+        int index = customer.SpawnSlotIndex >= 0 ? customer.SpawnSlotIndex : model.Customers.IndexOf(customer);
         int total = model.Customers.Count;
         Vector2 target = layout.GetCustomerPosition(index, total);
         Vector2 entry = layout.GetCustomerEntryPosition(index, total);
 
-        var go = new GameObject("Customer_" + customer.Id);
-        go.transform.SetParent(customerRoot, false);
-        var view = go.AddComponent<CustomerView>();
+        CustomerView view;
+        if (customerPrefab != null)
+        {
+            var go = Instantiate(customerPrefab, target, Quaternion.identity);
+            go.name = "Customer_" + customer.Id;
+            view = go.GetComponent<CustomerView>();
+            if (view == null)
+                view = go.AddComponent<CustomerView>();
+        }
+        else
+        {
+            var go = new GameObject("Customer_" + customer.Id);
+            view = go.AddComponent<CustomerView>();
+        }
+
         view.Setup(customer, entry, target, model, sacrificeService, disposables);
         view.Bind(disposables);
         customerViews[customer] = view;
@@ -312,7 +273,8 @@ public class GameBootstrap : MonoBehaviour
             if (!customerViews.TryGetValue(customer, out var view) || view == null)
                 continue;
 
-            Vector2 pos = layout.GetCustomerPosition(i, total);
+            int slotIndex = customer.SpawnSlotIndex >= 0 ? customer.SpawnSlotIndex : i;
+            Vector2 pos = layout.GetCustomerPosition(slotIndex, total);
             view.MoveTo(pos);
         }
     }

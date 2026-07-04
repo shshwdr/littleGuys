@@ -5,16 +5,18 @@ using UnityEngine.UI;
 
 public class ZoneWorldUIView : MonoBehaviour
 {
+    [Header("Optional Prefab UI")]
+    [SerializeField] Button addButton;
+    [SerializeField] Button subButton;
+    [SerializeField] TMP_Text countText;
+    [SerializeField] TMP_Text percentText;
+    [SerializeField] TMP_Text speedText;
+    [SerializeField] Image progressFill;
+    [SerializeField] bool createUiIfMissing = true;
+
     ZoneType zoneType;
     GameModel model;
     WorkerAssignService assignService;
-
-    Button addButton;
-    Button subButton;
-    TMP_Text countText;
-    TMP_Text percentText;
-    TMP_Text speedText;
-    Image progressFill;
 
     public void Setup(
         ZoneType type,
@@ -28,7 +30,13 @@ public class ZoneWorldUIView : MonoBehaviour
         assignService = assignSvc;
         transform.position = new Vector3(position.x, position.y, 0f);
 
-        Color zoneColor = GetZoneColor(type);
+        if (createUiIfMissing && addButton == null)
+            CreateDefaultUi(zoneLabel);
+    }
+
+    void CreateDefaultUi(string zoneLabel)
+    {
+        Color zoneColor = GetZoneColor(zoneType);
         ColorSpriteFactory.CreateSquare("Zone", transform, zoneColor, new Vector2(1.6f, 1.2f));
 
         var canvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, 1.1f, 0f), new Vector2(320f, 220f));
@@ -46,6 +54,9 @@ public class ZoneWorldUIView : MonoBehaviour
 
     public void Bind(CompositeDisposable disposables)
     {
+        if (addButton == null || subButton == null || model == null)
+            return;
+
         var zone = model.GetZone(zoneType);
 
         addButton.OnClickAsObservable()
@@ -59,27 +70,38 @@ public class ZoneWorldUIView : MonoBehaviour
         zone.WorkerCount
             .Subscribe(count =>
             {
-                countText.text = count.ToString();
+                if (countText != null)
+                    countText.text = count.ToString();
                 addButton.interactable = assignService.CanAddWorker(zoneType);
                 subButton.interactable = assignService.CanRemoveWorker(zoneType);
             })
             .AddTo(disposables);
 
-        zone.TaskProgress
-            .Subscribe(progress =>
-            {
-                progressFill.fillAmount = Mathf.Clamp01(progress);
-                percentText.text = zone.StatusText.Value;
-            })
-            .AddTo(disposables);
+        if (progressFill != null)
+        {
+            zone.TaskProgress
+                .Subscribe(progress =>
+                {
+                    progressFill.fillAmount = Mathf.Clamp01(progress);
+                    if (percentText != null)
+                        percentText.text = zone.StatusText.Value;
+                })
+                .AddTo(disposables);
+        }
 
-        zone.StatusText
-            .Subscribe(text => percentText.text = text)
-            .AddTo(disposables);
+        if (percentText != null)
+        {
+            zone.StatusText
+                .Subscribe(text => percentText.text = text)
+                .AddTo(disposables);
+        }
 
-        zone.WorkSpeed
-            .Subscribe(speed => speedText.text = $"Speed: {speed:F1}")
-            .AddTo(disposables);
+        if (speedText != null)
+        {
+            zone.WorkSpeed
+                .Subscribe(speed => speedText.text = $"Speed: {speed:F1}")
+                .AddTo(disposables);
+        }
 
         addButton.interactable = assignService.CanAddWorker(zoneType);
         subButton.interactable = assignService.CanRemoveWorker(zoneType);
@@ -100,11 +122,12 @@ public class ZoneWorldUIView : MonoBehaviour
 
     void Update()
     {
-        if (model == null || progressFill == null)
+        if (model == null)
             return;
 
         var zone = model.GetZone(zoneType);
-        progressFill.fillAmount = Mathf.Clamp01(zone.TaskProgress.Value);
+        if (progressFill != null)
+            progressFill.fillAmount = Mathf.Clamp01(zone.TaskProgress.Value);
         if (percentText != null)
             percentText.text = zone.StatusText.Value;
 

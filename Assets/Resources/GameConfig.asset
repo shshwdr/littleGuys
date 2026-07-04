@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f3c8a2e1b4d5e6f8091a2b3c4d5e6f7, type: 3}
   m_Name: GameConfig
   m_EditorClassIdentifier: 
-  totalWorkers: 2
+  totalWorkers: 10
   maxWorkersPerZone: 10
   workerMoveSpeed: 4
   carryMoveSpeedDivisor: 30

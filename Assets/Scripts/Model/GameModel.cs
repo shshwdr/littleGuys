@@ -7,6 +7,7 @@ public class GameModel
     public Dictionary<string, RecipeData> Recipes = new Dictionary<string, RecipeData>();
 
     public ReactiveProperty<GameState> State = new ReactiveProperty<GameState>(GameState.Playing);
+    public ReactiveProperty<int> Gold = new ReactiveProperty<int>(0);
     public ReactiveProperty<string> ActiveRecipeId = new ReactiveProperty<string>(null);
     public ReactiveCollection<CustomerData> Customers = new ReactiveCollection<CustomerData>();
     public ReactiveCollection<WorkerData> Workers = new ReactiveCollection<WorkerData>();

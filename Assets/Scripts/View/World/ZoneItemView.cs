@@ -2,30 +2,45 @@ using UnityEngine;
 
 public class ZoneItemView : MonoBehaviour
 {
+    [SerializeField] SpriteRenderer itemRenderer;
+
     Transform itemTransform;
-    SpriteRenderer itemRenderer;
     ZoneType zoneType;
     GameModel model;
+    bool isSetup;
 
     public void Setup(ZoneType type, GameModel gameModel, GameConfigData config)
     {
         zoneType = type;
         model = gameModel;
+        isSetup = true;
 
         float size = config.foodSpriteSize * 1.15f;
+        EnsureRenderer(config, size);
+        itemTransform = itemRenderer.transform;
+        itemRenderer.enabled = false;
+    }
+
+    void EnsureRenderer(GameConfigData config, float size)
+    {
+        if (itemRenderer != null)
+            return;
+
+        itemRenderer = GetComponentInChildren<SpriteRenderer>();
+        if (itemRenderer != null)
+            return;
+
         itemRenderer = ColorSpriteFactory.CreateSprite(
             "SharedItem",
             transform,
             ResourceSpriteLoader.GetFood(),
             Color.white,
             new Vector2(size, size));
-        itemTransform = itemRenderer.transform;
-        itemRenderer.enabled = false;
     }
 
     void Update()
     {
-        if (model == null)
+        if (!isSetup || model == null || itemRenderer == null)
             return;
 
         var zone = model.GetZone(zoneType);

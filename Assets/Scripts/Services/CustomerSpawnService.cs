@@ -4,10 +4,12 @@ using UniRx;
 public class CustomerSpawnService
 {
     readonly GameModel model;
+    readonly WorldLayout layout;
 
-    public CustomerSpawnService(GameModel model)
+    public CustomerSpawnService(GameModel model, WorldLayout layout)
     {
         this.model = model;
+        this.layout = layout;
     }
 
     public void Tick(float dt)
@@ -56,16 +58,38 @@ public class CustomerSpawnService
     {
         model.TotalCustomersSpawned++;
         int requiredSatiety = (model.TotalCustomersSpawned - 1) / 3 + 1;
+        int spawnSlot = FindNextSpawnSlot();
 
         var customer = new CustomerData
         {
             Id = model.NextCustomerId++,
+            SpawnSlotIndex = spawnSlot,
             RequiredSatiety = requiredSatiety,
             ReceivedSatiety = 0,
             MaxPatience = model.Config.customerMaxPatience
         };
         customer.Patience.Value = customer.MaxPatience;
         model.Customers.Add(customer);
+    }
+
+    int FindNextSpawnSlot()
+    {
+        var usedSlots = model.Customers
+            .Where(c => c.SpawnSlotIndex >= 0)
+            .Select(c => c.SpawnSlotIndex)
+            .ToHashSet();
+
+        int maxSlots = layout.CustomerSlotCount > 0
+            ? layout.CustomerSlotCount
+            : model.Config.maxCustomers;
+
+        for (int i = 0; i < maxSlots; i++)
+        {
+            if (!usedSlots.Contains(i))
+                return i;
+        }
+
+        return model.Customers.Count;
     }
 
     public CustomerData GetFirstWaitingCustomer()
@@ -79,6 +103,7 @@ public class CustomerSpawnService
             return;
 
         customer.IsServed = true;
+        model.Gold.Value += customer.ReceivedSatiety;
         model.Customers.Remove(customer);
         model.ServedCustomerCount++;
         CheckUnlocks();

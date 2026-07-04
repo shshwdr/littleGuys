@@ -83,7 +83,8 @@ public class CustomerSacrificeService
             }
 
             int index = model.Customers.IndexOf(customer);
-            Vector2 target = layout.GetCustomerSacrificePosition(index, model.Customers.Count);
+            int slotIndex = customer.SpawnSlotIndex >= 0 ? customer.SpawnSlotIndex : index;
+            Vector2 target = layout.GetCustomerSacrificePosition(slotIndex, model.Customers.Count);
             worker.TargetPosition = target;
             worker.Position = Vector2.MoveTowards(
                 worker.Position,

@@ -3,39 +3,66 @@ using UnityEngine;
 
 public class ZoneBufferPileView : MonoBehaviour
 {
-    SpriteRenderer pileRenderer;
-    ZoneType sourceZone;
-    GameModel model;
-    FoodStage stage;
-    FoodVisual visualFilter = FoodVisual.None;
+    [SerializeField] ZoneType sourceZone;
+    [SerializeField] FoodStage pileStage;
+    [SerializeField] FoodVisual pileVisual = FoodVisual.None;
 
-    public void Setup(ZoneType upstreamZone, GameModel gameModel, GameConfigData config, Vector2 position, FoodStage pileStage, FoodVisual pileVisual)
+    SpriteRenderer pileRenderer;
+    GameModel model;
+    bool isSetup;
+
+    public void Setup(ZoneType upstreamZone, GameModel gameModel, GameConfigData config, Vector2 position, FoodStage stage, FoodVisual visual)
     {
         sourceZone = upstreamZone;
         model = gameModel;
-        stage = pileStage;
-        visualFilter = pileVisual;
+        pileStage = stage;
+        pileVisual = visual;
+        isSetup = true;
 
         float size = config.foodSpriteSize * 1.15f;
+        EnsureRenderer(config, visual, size);
+        transform.position = new Vector3(position.x, position.y, transform.position.z);
+        pileRenderer.enabled = false;
+    }
+
+    public void BindExisting(ZoneType upstreamZone, GameModel gameModel, GameConfigData config)
+    {
+        sourceZone = upstreamZone;
+        model = gameModel;
+        isSetup = true;
+
+        float size = config.foodSpriteSize * 1.15f;
+        EnsureRenderer(config, pileVisual, size);
+        if (pileRenderer == null)
+            return;
+    }
+
+    void EnsureRenderer(GameConfigData config, FoodVisual visual, float size)
+    {
+        if (pileRenderer != null)
+            return;
+
+        pileRenderer = GetComponentInChildren<SpriteRenderer>();
+        if (pileRenderer != null)
+            return;
+
         pileRenderer = ColorSpriteFactory.CreateSprite(
             "BufferPile",
             transform,
-            ResourceSpriteLoader.GetFoodVisual(pileVisual),
+            ResourceSpriteLoader.GetFoodVisual(visual),
             Color.white,
             new Vector2(size, size));
-        transform.position = new Vector3(position.x, position.y, -0.06f);
-        pileRenderer.enabled = false;
     }
 
     void Update()
     {
-        if (model == null)
+        if (!isSetup || model == null || pileRenderer == null)
             return;
 
         var zone = model.GetZone(sourceZone);
         var item = zone.OutputItems.FirstOrDefault(output =>
-            output.Stage == stage &&
-            (visualFilter == FoodVisual.None || output.Visual == visualFilter));
+            output.Stage == pileStage &&
+            (pileVisual == FoodVisual.None || output.Visual == pileVisual));
 
         bool hasItem = item != null;
         pileRenderer.enabled = hasItem;

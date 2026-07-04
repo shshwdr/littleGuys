@@ -163,7 +163,11 @@ public class WorkerView : MonoBehaviour
         {
             int index = model.Customers.IndexOf(worker.SacrificeTarget);
             if (index >= 0)
-                customerPos = layout.GetCustomerPosition(index, model.Customers.Count);
+            {
+                var customer = worker.SacrificeTarget;
+                int slotIndex = customer.SpawnSlotIndex >= 0 ? customer.SpawnSlotIndex : index;
+                customerPos = layout.GetCustomerSacrificePosition(slotIndex, model.Customers.Count);
+            }
         }
 
         var target = new Vector3(customerPos.x, customerPos.y + 0.3f, 0f);
