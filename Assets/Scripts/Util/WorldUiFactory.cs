@@ -92,6 +92,8 @@ public static class WorldUiFactory
 
     public static Button CreateButton(Transform parent, string name, string label, Vector2 anchoredPos, Vector2 size)
     {
+        size *= 0.5f;
+
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
         var rect = go.AddComponent<RectTransform>();
@@ -103,7 +105,7 @@ public static class WorldUiFactory
 
         var button = go.AddComponent<Button>();
 
-        var text = CreateText(go.transform, "Label", label, Vector2.zero, 24f, TextAlignmentOptions.Center);
+        var text = CreateText(go.transform, "Label", label, Vector2.zero, 12f, TextAlignmentOptions.Center);
         text.rectTransform.sizeDelta = size;
         text.raycastTarget = true;
 

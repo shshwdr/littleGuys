@@ -89,7 +89,7 @@ public class SplitterService
         zone.TaskProgress.Value += (operatorCount / zone.BaseDuration) * dt;
         zone.StatusText.Value = $"{Mathf.RoundToInt(zone.TaskProgress.Value * 100f)}%";
 
-        Vector2 center = layout.GetWorkItemPosition(ZoneType.Splitter);
+        Vector2 center = layout.GetInputPosition(ZoneType.Splitter);
         zone.SharedItemPosition = center;
         zone.HasSharedItem = true;
         zone.SharedFoodVisual = FoodVisual.Minion;
@@ -127,7 +127,7 @@ public class SplitterService
         zone.HasSharedItem = true;
         zone.SharedFoodVisual = FoodVisual.Minion;
         zone.SharedItemStage = FoodStage.Raw;
-        zone.SharedItemPosition = layout.GetWorkItemPosition(ZoneType.Splitter);
+        zone.SharedItemPosition = layout.GetInputPosition(ZoneType.Splitter);
 
         foreach (var worker in workers)
         {
@@ -183,7 +183,7 @@ public class SplitterService
             HasArrivedAtZone = false,
             IsSmall = true,
             RemainingGrowTime = model.Config.smallWorkerGrowTime,
-            Position = layout.GetWorkerSlotPosition(ZoneType.Splitter, slotIndex, 2)
+            Position = layout.GetOutputSlotPosition(ZoneType.Splitter, slotIndex, 2)
         };
 
         model.Workers.Add(worker);

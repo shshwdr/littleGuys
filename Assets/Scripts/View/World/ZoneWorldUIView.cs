@@ -10,7 +10,6 @@ public class ZoneWorldUIView : MonoBehaviour
     [SerializeField] Button subButton;
     [SerializeField] TMP_Text countText;
     [SerializeField] TMP_Text percentText;
-    [SerializeField] TMP_Text speedText;
     [SerializeField] Image progressFill;
     [SerializeField] bool createUiIfMissing = true;
 
@@ -46,7 +45,6 @@ public class ZoneWorldUIView : MonoBehaviour
 
         progressFill = WorldUiFactory.CreateFillBar(canvas.transform, "Progress", new Vector2(0f, -5f), new Vector2(220f, 22f), new Color(0.3f, 0.7f, 1f));
         percentText = WorldUiFactory.CreateText(canvas.transform, "Percent", "0%", new Vector2(0f, -35f), 22f, TextAlignmentOptions.Center);
-        speedText = WorldUiFactory.CreateText(canvas.transform, "Speed", "Speed: 0.0", new Vector2(0f, -65f), 20f, TextAlignmentOptions.Center);
     }
 
     public void Bind(CompositeDisposable disposables)
@@ -90,13 +88,6 @@ public class ZoneWorldUIView : MonoBehaviour
         {
             zone.StatusText
                 .Subscribe(text => percentText.text = text)
-                .AddTo(disposables);
-        }
-
-        if (speedText != null)
-        {
-            zone.WorkSpeed
-                .Subscribe(speed => speedText.text = $"Speed: {speed:F1}")
                 .AddTo(disposables);
         }
 

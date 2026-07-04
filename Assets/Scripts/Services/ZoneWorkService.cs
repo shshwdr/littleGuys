@@ -71,8 +71,10 @@ public class ZoneWorkService
         zone.WorkSpeed.Value = operatorCount / zone.BaseDuration;
         zone.TaskProgress.Value += (operatorCount / zone.BaseDuration) * dt;
 
-        Vector2 workCenter = layout.GetWorkItemPosition(type);
-        zone.SharedItemPosition = workCenter;
+        Vector2 itemCenter = zone.ConsumeWorkerAsInput
+            ? layout.GetInputPosition(type)
+            : layout.GetWorkItemPosition(type);
+        zone.SharedItemPosition = itemCenter;
         zone.HasSharedItem = true;
         zone.SharedItemStage = zone.StepInput;
         zone.SharedFoodVisual = zone.StepInputVisual;

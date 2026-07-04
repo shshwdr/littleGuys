@@ -288,7 +288,9 @@ public class TransportService
             zone.TaskProgress.Value = 0f;
             zone.StatusText.Value = "0%";
             zone.WorkRotation = 0f;
-            zone.SharedItemPosition = layout.GetWorkItemPosition(zone.Type);
+            zone.SharedItemPosition = zone.ConsumeWorkerAsInput
+                ? layout.GetInputPosition(zone.Type)
+                : layout.GetWorkItemPosition(zone.Type);
             LockWorkersForProcessing(workers);
         }
     }

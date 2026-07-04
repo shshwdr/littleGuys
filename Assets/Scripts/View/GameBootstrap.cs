@@ -48,6 +48,7 @@ public class GameBootstrap : MonoBehaviour
 
     void OnDestroy()
     {
+        Time.timeScale = 1f;
         disposables.Dispose();
     }
 

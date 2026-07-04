@@ -33,7 +33,7 @@ public class RecipePanelView : MonoBehaviour
         panelRect.anchorMax = new Vector2(0.5f, 0f);
         panelRect.pivot = new Vector2(0.5f, 0f);
         panelRect.anchoredPosition = new Vector2(0f, 20f);
-        panelRect.sizeDelta = new Vector2(620f, 40f);
+        panelRect.sizeDelta = new Vector2(620f, 20f);
 
         var bg = panelGo.AddComponent<Image>();
         bg.color = new Color(0f, 0f, 0f, 0.55f);
@@ -75,7 +75,7 @@ public class RecipePanelView : MonoBehaviour
         buttonGo.transform.SetParent(parent, false);
         var buttonRect = buttonGo.AddComponent<RectTransform>();
         buttonRect.anchoredPosition = new Vector2(x, 0f);
-        buttonRect.sizeDelta = new Vector2(150f, 28f);
+        buttonRect.sizeDelta = new Vector2(75f, 14f);
         var image = buttonGo.AddComponent<Image>();
         image.color = new Color(0.25f, 0.45f, 0.8f, 1f);
         var button = buttonGo.AddComponent<Button>();
@@ -85,9 +85,9 @@ public class RecipePanelView : MonoBehaviour
             "Label",
             recipe.DisplayName,
             Vector2.zero,
-            20f,
+            10f,
             TextAlignmentOptions.Center);
-        text.rectTransform.sizeDelta = new Vector2(150f, 28f);
+        text.rectTransform.sizeDelta = new Vector2(75f, 14f);
 
         button.OnClickAsObservable()
             .Subscribe(_ => productionService.ActivateRecipe(recipeId))

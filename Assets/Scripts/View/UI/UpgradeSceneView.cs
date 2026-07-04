@@ -105,7 +105,7 @@ public class UpgradeSceneView : MonoBehaviour
             var buttonGo = new GameObject("Upgrade_" + id);
             buttonGo.transform.SetParent(parent, false);
             var buttonRect = buttonGo.AddComponent<RectTransform>();
-            SetupCenterRect(buttonRect, new Vector2(0f, 250f - index * 64f), new Vector2(760f, 56f));
+            SetupCenterRect(buttonRect, new Vector2(0f, 250f - index * 32f), new Vector2(380f, 28f));
 
             var image = buttonGo.AddComponent<Image>();
             image.sprite = buttonSprite;
@@ -120,8 +120,8 @@ public class UpgradeSceneView : MonoBehaviour
                 "Label",
                 BuildUpgradeLabel(id),
                 Vector2.zero,
-                new Vector2(740f, 56f),
-                24f);
+                new Vector2(370f, 28f),
+                12f);
 
             button.onClick.AddListener(() => OnUpgradeClicked(upgradeIds[index]));
         }
@@ -132,7 +132,7 @@ public class UpgradeSceneView : MonoBehaviour
         var buttonGo = new GameObject("StartGameButton");
         buttonGo.transform.SetParent(parent, false);
         var buttonRect = buttonGo.AddComponent<RectTransform>();
-        SetupCenterRect(buttonRect, new Vector2(0f, -360f), new Vector2(280f, 60f));
+        SetupCenterRect(buttonRect, new Vector2(0f, -360f), new Vector2(140f, 30f));
 
         var image = buttonGo.AddComponent<Image>();
         image.sprite = buttonSprite;
@@ -140,7 +140,7 @@ public class UpgradeSceneView : MonoBehaviour
         image.color = new Color(0.2f, 0.65f, 0.35f, 1f);
 
         var button = buttonGo.AddComponent<Button>();
-        CreateLabel(buttonGo.transform, "Label", "Start Game", Vector2.zero, new Vector2(280f, 60f), 30f);
+        CreateLabel(buttonGo.transform, "Label", "Start Game", Vector2.zero, new Vector2(140f, 30f), 15f);
 
         button.OnClickAsObservable()
             .Subscribe(_ => SceneFlowService.LoadMainGame())

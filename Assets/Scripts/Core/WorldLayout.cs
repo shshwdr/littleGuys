@@ -93,10 +93,16 @@ public class WorldLayout
 
     public Vector2 GetWorkerSlotPosition(ZoneType zone, int index, int totalInZone)
     {
-        Vector2 center = zonePrefabs.TryGetValue(zone, out var prefab)
-            ? prefab.GetWorkerRootPosition()
-            : GetFallbackZonePosition(zone);
+        return GetSlotPositionAround(GetWorkItemPosition(zone), index, totalInZone);
+    }
 
+    public Vector2 GetOutputSlotPosition(ZoneType zone, int index, int totalInZone)
+    {
+        return GetSlotPositionAround(GetOutputPosition(zone), index, totalInZone);
+    }
+
+    Vector2 GetSlotPositionAround(Vector2 center, int index, int totalInZone)
+    {
         if (totalInZone <= 1)
             return center;
 

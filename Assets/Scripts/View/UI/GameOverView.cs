@@ -65,7 +65,7 @@ public class GameOverView : MonoBehaviour
         buttonRect.anchorMin = new Vector2(0.5f, 0.5f);
         buttonRect.anchorMax = new Vector2(0.5f, 0.5f);
         buttonRect.anchoredPosition = new Vector2(0f, -80f);
-        buttonRect.sizeDelta = new Vector2(280f, 52f);
+        buttonRect.sizeDelta = new Vector2(140f, 26f);
         var buttonImage = buttonGo.AddComponent<Image>();
         buttonImage.color = new Color(0.25f, 0.45f, 0.8f, 1f);
         var button = buttonGo.AddComponent<Button>();
@@ -75,9 +75,9 @@ public class GameOverView : MonoBehaviour
             "Label",
             "Go to Upgrades",
             Vector2.zero,
-            26f,
+            13f,
             TextAlignmentOptions.Center);
-        buttonLabel.rectTransform.sizeDelta = new Vector2(280f, 52f);
+        buttonLabel.rectTransform.sizeDelta = new Vector2(140f, 26f);
 
         button.OnClickAsObservable()
             .Subscribe(_ => SceneFlowService.LoadUpgradeScene())

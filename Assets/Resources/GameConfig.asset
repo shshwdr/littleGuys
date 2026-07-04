@@ -26,7 +26,7 @@ MonoBehaviour:
   maxCustomers: 1
   customerSpawnInterval: 0
   customerMaxPatience: 100
-  patienceDecayPerSecond: 1
+  patienceDecayPerSecond: 1.5
   workerSpacing: 0.35
   carryYOffset: 0.5
   carriedItemHeight: 0.95

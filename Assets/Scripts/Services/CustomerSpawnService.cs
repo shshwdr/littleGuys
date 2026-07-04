@@ -57,7 +57,7 @@ public class CustomerSpawnService
     void SpawnCustomer()
     {
         model.TotalCustomersSpawned++;
-        int requiredSatiety = (model.TotalCustomersSpawned - 1) / 3 + 1;
+        int requiredSatiety = model.TotalCustomersSpawned;
         int spawnSlot = FindNextSpawnSlot();
 
         var customer = new CustomerData
