@@ -6,29 +6,37 @@ using UnityEngine.UI;
 
 public class GameHudView : MonoBehaviour
 {
-    static readonly (string label, float scale)[] SpeedOptions =
+    readonly (string label, float scale)[] UnlockedSpeedOptions =
     {
         ("Pause", 0f),
         ("1x", 1f),
-        ("2x", 2f),
-        ("3x", 3f),
-        ("5x", 5f)
+        ("2x", 2f)
     };
 
     readonly Dictionary<float, Image> speedButtonImages = new Dictionary<float, Image>();
-    TMP_Text goldText;
-    GameModel model;
-    float currentSpeed = 1f;
 
-    public void Setup(GameModel gameModel, CompositeDisposable disposables)
+    TMP_Text goldText;
+    TMP_Text primaryButtonLabel;
+    Image primaryButtonImage;
+    GameModel model;
+    System.Action onPrimaryClicked;
+    float currentSpeed = 1f;
+    bool upgradeMode;
+
+    public void Setup(
+        GameModel gameModel,
+        CompositeDisposable disposables,
+        bool speedUpUnlocked,
+        System.Action primaryButtonClicked)
     {
         model = gameModel;
+        onPrimaryClicked = primaryButtonClicked;
 
         var canvasGo = new GameObject("HudCanvas");
         canvasGo.transform.SetParent(transform, false);
         var canvas = canvasGo.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 10;
+        canvas.sortingOrder = 110;
         canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         canvasGo.AddComponent<GraphicRaycaster>();
 
@@ -55,45 +63,70 @@ public class GameHudView : MonoBehaviour
         goldText.rectTransform.offsetMin = new Vector2(12f, 0f);
         goldText.rectTransform.offsetMax = new Vector2(-12f, 0f);
 
-        CreateSpeedPanel(canvasGo.transform, disposables);
+        if (speedUpUnlocked)
+            CreateSpeedPanel(canvasGo.transform, disposables, UnlockedSpeedOptions);
 
-        var endButtonGo = new GameObject("EndLevelButton");
-        endButtonGo.transform.SetParent(canvasGo.transform, false);
-        var endButtonRect = endButtonGo.AddComponent<RectTransform>();
-        endButtonRect.anchorMin = new Vector2(1f, 1f);
-        endButtonRect.anchorMax = new Vector2(1f, 1f);
-        endButtonRect.pivot = new Vector2(1f, 1f);
-        endButtonRect.anchoredPosition = new Vector2(-20f, -20f);
-        endButtonRect.sizeDelta = new Vector2(70f, 20f);
-        var endButtonImage = endButtonGo.AddComponent<Image>();
-        endButtonImage.color = new Color(0.7f, 0.25f, 0.25f, 1f);
-        var endButton = endButtonGo.AddComponent<Button>();
+        var primaryButtonGo = new GameObject("PrimaryActionButton");
+        primaryButtonGo.transform.SetParent(canvasGo.transform, false);
+        var primaryButtonRect = primaryButtonGo.AddComponent<RectTransform>();
+        primaryButtonRect.anchorMin = new Vector2(1f, 1f);
+        primaryButtonRect.anchorMax = new Vector2(1f, 1f);
+        primaryButtonRect.pivot = new Vector2(1f, 1f);
+        primaryButtonRect.anchoredPosition = new Vector2(-20f, -20f);
+        primaryButtonRect.sizeDelta = new Vector2(80f, 20f);
+        primaryButtonImage = primaryButtonGo.AddComponent<Image>();
+        var primaryButton = primaryButtonGo.AddComponent<Button>();
 
-        var endButtonLabel = WorldUiFactory.CreateText(
-            endButtonGo.transform,
+        primaryButtonLabel = WorldUiFactory.CreateText(
+            primaryButtonGo.transform,
             "Label",
             "End Level",
             Vector2.zero,
             11f,
             TextAlignmentOptions.Center);
-        endButtonLabel.rectTransform.sizeDelta = new Vector2(70f, 20f);
+        primaryButtonLabel.rectTransform.sizeDelta = new Vector2(80f, 20f);
 
-        endButton.OnClickAsObservable()
-            .Subscribe(_ =>
-            {
-                if (model.State.Value == GameState.Playing)
-                    model.State.Value = GameState.GameOver;
-            })
+        primaryButton.OnClickAsObservable()
+            .Subscribe(_ => onPrimaryClicked?.Invoke())
             .AddTo(disposables);
 
         model.Gold
-            .Subscribe(gold => goldText.text = $"Gold: {gold}")
+            .Subscribe(gold => RefreshGoldText(gold))
             .AddTo(disposables);
 
+        SetUpgradeMode(false);
         SetGameSpeed(1f);
     }
 
-    void CreateSpeedPanel(Transform parent, CompositeDisposable disposables)
+    public void SetUpgradeMode(bool isUpgradeMode)
+    {
+        upgradeMode = isUpgradeMode;
+        primaryButtonLabel.text = isUpgradeMode ? "Start Game" : "End Level";
+        primaryButtonImage.color = isUpgradeMode
+            ? new Color(0.2f, 0.65f, 0.35f, 1f)
+            : new Color(0.7f, 0.25f, 0.25f, 1f);
+        RefreshGoldText(model != null ? model.Gold.Value : 0);
+    }
+
+    void RefreshGoldText(int runGold)
+    {
+        if (goldText == null)
+            return;
+
+        if (upgradeMode)
+        {
+            var meta = MetaSaveService.Load();
+            goldText.text = $"Meta Gold: {meta.MetaGold}";
+            return;
+        }
+
+        goldText.text = $"Gold: {runGold}";
+    }
+
+    void CreateSpeedPanel(
+        Transform parent,
+        CompositeDisposable disposables,
+        (string label, float scale)[] speedOptions)
     {
         var panelGo = new GameObject("SpeedPanel");
         panelGo.transform.SetParent(parent, false);
@@ -105,15 +138,15 @@ public class GameHudView : MonoBehaviour
         const float buttonWidth = 32f;
         const float buttonGap = 4f;
         const float padding = 6f;
-        float panelWidth = padding * 2f + SpeedOptions.Length * buttonWidth + (SpeedOptions.Length - 1) * buttonGap;
+        float panelWidth = padding * 2f + speedOptions.Length * buttonWidth + (speedOptions.Length - 1) * buttonGap;
         panelRect.sizeDelta = new Vector2(panelWidth, 20f);
 
         var panelBg = panelGo.AddComponent<Image>();
         panelBg.color = new Color(0f, 0f, 0f, 0.55f);
 
-        for (int i = 0; i < SpeedOptions.Length; i++)
+        for (int i = 0; i < speedOptions.Length; i++)
         {
-            var option = SpeedOptions[i];
+            var option = speedOptions[i];
             float x = padding + i * (buttonWidth + buttonGap);
             var buttonGo = new GameObject(option.label + "Button");
             buttonGo.transform.SetParent(panelGo.transform, false);

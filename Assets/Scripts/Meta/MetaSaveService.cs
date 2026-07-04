@@ -6,12 +6,14 @@ public static class MetaSaveService
 
     public static MetaSaveData Load()
     {
+        EnsureCsvLoaded();
+
         if (!PlayerPrefs.HasKey(SaveKey))
             return MetaSaveData.CreateDefault();
 
         string json = PlayerPrefs.GetString(SaveKey);
         var data = JsonUtility.FromJson<MetaSaveData>(json);
-        if (data == null || data.UpgradeLevels == null || data.UpgradeLevels.Length != UpgradeDefinition.All.Length)
+        if (data == null)
             return MetaSaveData.CreateDefault();
 
         return data;
@@ -31,31 +33,85 @@ public static class MetaSaveService
 
     public static GameConfigData ApplyUpgrades(GameConfigData baseConfig, MetaSaveData meta)
     {
+        EnsureCsvLoaded();
         var config = Object.Instantiate(baseConfig);
-        config.totalWorkers += meta.GetLevel(UpgradeId.InitialWorkers);
-        int moveSpeedLevel = meta.GetLevel(UpgradeId.MoveSpeed);
-        config.workerMoveSpeed *= 1f + 0.1f * moveSpeedLevel;
+        float moveSpeedBonusPercent = 0f;
+        float sacrificePatienceBonusPercent = 0f;
+
+        foreach (var info in CSVLoader.GetAll())
+        {
+            int level = meta.GetLevel(info.identifier);
+            if (level <= 0)
+                continue;
+
+            switch (info.effect)
+            {
+                case "worker":
+                    config.totalWorkers += info.value * level;
+                    break;
+                case "moveSpeed":
+                    moveSpeedBonusPercent += info.value * level;
+                    break;
+                case "zoneCapacity":
+                    config.maxWorkersPerZone += info.value * level;
+                    break;
+                case "sacrificePatience":
+                    sacrificePatienceBonusPercent += info.value * level;
+                    break;
+            }
+        }
+
+        if (moveSpeedBonusPercent > 0f)
+            config.workerMoveSpeed *= 1f + moveSpeedBonusPercent / 100f;
+
+        if (sacrificePatienceBonusPercent > 0f)
+            config.customerSacrificePatienceRestore *= 1f + sacrificePatienceBonusPercent / 100f;
+
         return config;
     }
 
     public static void ApplyUnlocks(GameModel model, MetaSaveData meta)
     {
-        if (meta.GetLevel(UpgradeId.UnlockVegSoup) >= 1)
-        {
-            model.UnlockedRecipes.Add("vegsoup");
-            model.GetZone(ZoneType.Cook).IsUnlocked = true;
-        }
+        EnsureCsvLoaded();
 
-        if (meta.GetLevel(UpgradeId.UnlockSplitter) >= 1)
-            model.GetZone(ZoneType.Splitter).IsUnlocked = true;
-
-        if (meta.GetLevel(UpgradeId.UnlockStirFry) >= 1)
+        foreach (var info in CSVLoader.GetAll())
         {
-            model.UnlockedRecipes.Add("stirfry");
-            model.GetZone(ZoneType.Wok).IsUnlocked = true;
+            if (meta.GetLevel(info.identifier) < 1)
+                continue;
+
+            switch (info.effect)
+            {
+                case "vegSoup":
+                    model.UnlockedRecipes.Add("vegsoup");
+                    model.GetZone(ZoneType.Cook).IsUnlocked = true;
+                    break;
+                case "splitMachine":
+                    model.GetZone(ZoneType.Splitter).IsUnlocked = true;
+                    break;
+                case "stirFry":
+                    model.UnlockedRecipes.Add("stirfry");
+                    model.GetZone(ZoneType.Wok).IsUnlocked = true;
+                    break;
+            }
         }
 
         model.ActiveRecipeId.Value = GetHighestUnlockedRecipeId(model);
+    }
+
+    public static bool IsSpeedUpUnlocked(MetaSaveData meta)
+    {
+        EnsureCsvLoaded();
+
+        foreach (var info in CSVLoader.GetAll())
+        {
+            if (info.effect != "speedUpButton")
+                continue;
+
+            if (meta.GetLevel(info.identifier) >= 1)
+                return true;
+        }
+
+        return false;
     }
 
     public static string GetHighestUnlockedRecipeId(GameModel model)
@@ -76,28 +132,50 @@ public static class MetaSaveService
         return bestId;
     }
 
-    public static bool CanPurchase(MetaSaveData meta, UpgradeId id)
+    public static bool IsLocked(MetaSaveData meta, UpgradeInfo info)
     {
-        var def = UpgradeDefinition.Get(id);
-        int level = meta.GetLevel(id);
-        if (level >= def.MaxLevel)
+        if (info == null)
+            return true;
+
+        if (string.IsNullOrEmpty(info.prev))
             return false;
 
-        if ((int)id > 0 && meta.GetLevel((UpgradeId)((int)id - 1)) < 1)
-            return false;
-
-        return meta.MetaGold >= def.Price;
+        return meta.GetLevel(info.prev) < 1;
     }
 
-    public static bool TryPurchase(MetaSaveData meta, UpgradeId id)
+    public static bool CanPurchase(MetaSaveData meta, string identifier)
     {
-        if (!CanPurchase(meta, id))
+        var info = CSVLoader.Get(identifier);
+        if (info == null)
             return false;
 
-        var def = UpgradeDefinition.Get(id);
-        meta.MetaGold -= def.Price;
-        meta.SetLevel(id, meta.GetLevel(id) + 1);
+        int level = meta.GetLevel(identifier);
+        if (level >= info.maxLevel)
+            return false;
+
+        if (IsLocked(meta, info))
+            return false;
+
+        return meta.MetaGold >= info.cost;
+    }
+
+    public static bool TryPurchase(MetaSaveData meta, string identifier)
+    {
+        if (!CanPurchase(meta, identifier))
+            return false;
+
+        var info = CSVLoader.Get(identifier);
+        meta.MetaGold -= info.cost;
+        meta.SetLevel(identifier, meta.GetLevel(identifier) + 1);
         Save(meta);
         return true;
+    }
+
+    static void EnsureCsvLoaded()
+    {
+        if (CSVLoader.IsInitialized)
+            return;
+
+        CSVLoader.Init();
     }
 }

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: GameConfig
   m_EditorClassIdentifier: 
   totalWorkers: 2
-  maxWorkersPerZone: 10
+  maxWorkersPerZone: 2
   workerMoveSpeed: 4
   carryMoveSpeedDivisor: 30
   smallWorkerGrowTime: 10

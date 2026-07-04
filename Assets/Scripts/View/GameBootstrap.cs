@@ -7,6 +7,12 @@ public class GameBootstrap : MonoBehaviour
 {
     [SerializeField] GameObject customerPrefab;
 
+    [Header("View Roots")]
+    [Tooltip("Gameplay content hidden while upgrade view is open.")]
+    [SerializeField] GameObject mainGameContent;
+    [Tooltip("Upgrade UI root shown after game over.")]
+    [SerializeField] GameObject upgradeViewRoot;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoCreate()
     {
@@ -37,12 +43,16 @@ public class GameBootstrap : MonoBehaviour
     CustomerSacrificeService sacrificeService;
 
     Transform workerRoot;
+    UpgradePanelView upgradePanel;
+    GameHudView hudView;
 
     void Awake()
     {
         MainThreadDispatcher.Initialize();
         EnsureEventSystem();
         SetupCamera();
+        EnsureViewRoots();
+        ApplyGameplayMode();
         BuildGame();
     }
 
@@ -54,6 +64,7 @@ public class GameBootstrap : MonoBehaviour
 
     void BuildGame()
     {
+        CSVLoader.Init();
         var metaSave = MetaSaveService.Load();
         var baseConfig = GameConfigData.Load();
         var config = MetaSaveService.ApplyUpgrades(baseConfig, metaSave);
@@ -75,10 +86,11 @@ public class GameBootstrap : MonoBehaviour
         sacrificeService.WorkerRemoved += OnWorkerRemoved;
 
         workerRoot = new GameObject("Workers").transform;
+        workerRoot.SetParent(GetMainGameParent(), false);
 
         BindSceneZones();
         CreateWorkers();
-        CreateUi();
+        CreateUi(metaSave);
 
         model.ZoneUnlocked
             .Subscribe(zoneType => BindZonePrefabIfNeeded(zoneType))
@@ -206,15 +218,87 @@ public class GameBootstrap : MonoBehaviour
             OnWorkerAdded(worker);
     }
 
-    void CreateUi()
+    void CreateUi(MetaSaveData metaSave)
     {
         var hudGo = new GameObject("GameHud");
         hudGo.transform.SetParent(transform, false);
-        hudGo.AddComponent<GameHudView>().Setup(model, disposables);
+        bool speedUpUnlocked = MetaSaveService.IsSpeedUpUnlocked(metaSave);
+        hudView = hudGo.AddComponent<GameHudView>();
+        hudView.Setup(model, disposables, speedUpUnlocked, OnHudPrimaryClicked);
 
         var gameOverGo = new GameObject("GameOver");
         gameOverGo.transform.SetParent(transform, false);
-        gameOverGo.AddComponent<GameOverView>().Setup(model, disposables);
+        gameOverGo.AddComponent<GameOverView>().Setup(model, this, disposables);
+
+        EnsureUpgradePanel(metaSave);
+    }
+
+    void OnHudPrimaryClicked()
+    {
+        if (upgradeViewRoot != null && upgradeViewRoot.activeSelf)
+        {
+            SceneFlowService.LoadMainGame();
+            return;
+        }
+
+        if (model.State.Value == GameState.Playing)
+            model.State.Value = GameState.GameOver;
+    }
+
+    void EnsureViewRoots()
+    {
+        if (mainGameContent == null)
+        {
+            mainGameContent = new GameObject("MainGameContent");
+            mainGameContent.transform.SetParent(transform, false);
+        }
+
+        if (upgradeViewRoot == null)
+        {
+            upgradeViewRoot = new GameObject("UpgradeView");
+            upgradeViewRoot.transform.SetParent(transform, false);
+        }
+    }
+
+    void EnsureUpgradePanel(MetaSaveData metaSave)
+    {
+        if (upgradePanel == null)
+        {
+            upgradePanel = upgradeViewRoot.GetComponent<UpgradePanelView>();
+            if (upgradePanel == null)
+                upgradePanel = upgradeViewRoot.AddComponent<UpgradePanelView>();
+        }
+
+        upgradePanel.Setup(metaSave, disposables, () => hudView?.SetUpgradeMode(true));
+    }
+
+    Transform GetMainGameParent()
+    {
+        return mainGameContent != null ? mainGameContent.transform : transform;
+    }
+
+    public void ApplyGameplayMode()
+    {
+        if (mainGameContent != null)
+            mainGameContent.SetActive(true);
+
+        if (upgradeViewRoot != null)
+            upgradeViewRoot.SetActive(false);
+
+        hudView?.SetUpgradeMode(false);
+    }
+
+    public void EnterUpgradeMode(string summaryText)
+    {
+        if (mainGameContent != null)
+            mainGameContent.SetActive(false);
+
+        if (upgradeViewRoot != null)
+            upgradeViewRoot.SetActive(true);
+
+        hudView?.SetUpgradeMode(true);
+        upgradePanel?.SetSummary(summaryText);
+        upgradePanel?.OnShown();
     }
 
     void OnWorkerAdded(WorkerData worker)

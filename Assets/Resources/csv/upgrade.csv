@@ -1,0 +1,13 @@
+﻿identifier,name,desc,effect,prev,cost,maxLevel,unlocked,value,comment
+worker1,,initial workers +{0},worker,,1,1,1,1,
+worker2,,initial workers +{0},worker,worker1,2,3,1,1,
+worker3,,initial workers +{0},worker,worker2,3,3,1,1,
+worker4,,initial workers +{0},worker,worker3,4,3,1,1,
+splitMachine,,unlock split machine,splitMachine,worker1,4,1,1,1,
+vegSoup,,unlock veg soup,vegSoup,worker1,8,1,1,1,
+stirFry,,unlock stir fry,stirFry,vegSoup,20,1,1,1,
+moveSpeed,,move speed increase {0}%,moveSpeed,worker2,3,4,1,10,
+speedup,,unlock speedup button,speedUpButton,worker2,10,1,1,1,
+zoneCapacity,,zone capacity increase {0},zoneCapacity,splitMachine,5,3,1,1,
+moveSpeed2,,move speed increase {0}%,moveSpeed,moveSpeed,10,4,1,10,
+sacrificeEffect,,sacrifice minion increase patience {0} more ,sacrificePatience,worker3,10,2,1,10,
