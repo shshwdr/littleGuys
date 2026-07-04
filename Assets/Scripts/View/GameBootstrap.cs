@@ -297,11 +297,13 @@ public class GameBootstrap : MonoBehaviour
             var camGo = new GameObject("Main Camera");
             cam = camGo.AddComponent<Camera>();
             cam.tag = "MainCamera";
+            cam.orthographic = true;
+            cam.orthographicSize = 7.5f;
+            cam.transform.position = new Vector3(0f, 0.5f, -10f);
+            cam.backgroundColor = new Color(0.12f, 0.12f, 0.15f);
+            return;
         }
 
         cam.orthographic = true;
-        cam.orthographicSize = 7.5f;
-        cam.transform.position = new Vector3(0f, 0.5f, -10f);
-        cam.backgroundColor = new Color(0.12f, 0.12f, 0.15f);
     }
 }

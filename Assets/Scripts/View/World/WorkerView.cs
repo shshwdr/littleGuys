@@ -8,7 +8,7 @@ public class WorkerView : MonoBehaviour
     WorldLayout layout;
     GameConfigData config;
     Transform bodyTransform;
-    float baseScale = 0.4f;
+    float baseScale = 0.2f;
     Tween walkBounceTween;
     Tween punchTween;
     Tween sacrificeTween;

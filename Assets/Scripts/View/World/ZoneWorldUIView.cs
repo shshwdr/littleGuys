@@ -36,9 +36,6 @@ public class ZoneWorldUIView : MonoBehaviour
 
     void CreateDefaultUi(string zoneLabel)
     {
-        Color zoneColor = GetZoneColor(zoneType);
-        ColorSpriteFactory.CreateSquare("Zone", transform, zoneColor, new Vector2(1.6f, 1.2f));
-
         var canvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, 1.1f, 0f), new Vector2(320f, 220f));
         WorldUiFactory.CreateText(canvas.transform, "Title", zoneLabel, new Vector2(0f, 85f), 26f, TextAlignmentOptions.Center);
 
@@ -132,20 +129,5 @@ public class ZoneWorldUIView : MonoBehaviour
             percentText.text = zone.StatusText.Value;
 
         RefreshAssignButtons();
-    }
-
-    static Color GetZoneColor(ZoneType type)
-    {
-        switch (type)
-        {
-            case ZoneType.Ingredient: return new Color(0.3f, 0.75f, 0.3f);
-            case ZoneType.Chop: return new Color(0.9f, 0.85f, 0.2f);
-            case ZoneType.Cook: return new Color(0.95f, 0.55f, 0.15f);
-            case ZoneType.Wok: return new Color(0.8f, 0.25f, 0.2f);
-            case ZoneType.Plate: return new Color(0.65f, 0.35f, 0.85f);
-            case ZoneType.Splitter: return new Color(0.45f, 0.7f, 0.85f);
-            case ZoneType.Idle: return new Color(0.55f, 0.55f, 0.55f);
-            default: return Color.white;
-        }
     }
 }
