@@ -1,0 +1,7 @@
+﻿identifier,desc,effect,value
+normal,,,
+eatPlateGuy,"when eat dishes, eat a guy",,
+eatOtherPlateGuy,"when others eat dishes, eat a guy",,
+makeEveryImpatient,make patience of everyone speed up 30%,,
+shake,shake the box,,
+eatMinion,kill a minion every {0} seconds,eatMinion,20

@@ -34,6 +34,7 @@ public class GameBootstrap : MonoBehaviour
     GameModel model;
     WorldLayout layout;
     CustomerSpawnService customerService;
+    CustomerEffectService customerEffectService;
     WorkerAssignService assignService;
     ZoneWorkService workService;
     TransportService transportService;
@@ -45,6 +46,7 @@ public class GameBootstrap : MonoBehaviour
     Transform workerRoot;
     UpgradePanelView upgradePanel;
     GameHudView hudView;
+    bool runGoldSettled;
 
     void Awake()
     {
@@ -66,19 +68,28 @@ public class GameBootstrap : MonoBehaviour
     {
         CSVLoader.Init();
         var metaSave = MetaSaveService.Load();
+        if (CSVLoader.GetScene(metaSave.CurrentScene) == null)
+        {
+            metaSave.CurrentScene = 0;
+            MetaSaveService.Save(metaSave);
+        }
         var baseConfig = GameConfigData.Load();
         var config = MetaSaveService.ApplyUpgrades(baseConfig, metaSave);
         layout = new WorldLayout(config);
         layout.RegisterFromScene();
         model = CreateModel(config, metaSave);
         productionService = new ProductionService(model);
-        customerService = new CustomerSpawnService(model, layout);
+        customerService = new CustomerSpawnService(model, layout, metaSave.CurrentScene);
+        customerEffectService = new CustomerEffectService(model, layout);
         splitterService = new SplitterService(model, layout);
         assignService = new WorkerAssignService(model, splitterService);
         workService = new ZoneWorkService(model, layout, productionService);
         transportService = new TransportService(model, layout, customerService, productionService);
         growthService = new WorkerGrowthService(model);
         sacrificeService = new CustomerSacrificeService(model, layout, assignService);
+
+        customerService.SceneCompleted += OnSceneCompleted;
+        customerEffectService.WorkerEatStarted += OnWorkerEatStarted;
 
         splitterService.WorkerAdded += OnWorkerAdded;
         splitterService.WorkerRemoved += OnWorkerRemoved;
@@ -114,6 +125,7 @@ public class GameBootstrap : MonoBehaviour
             {
                 float dt = Time.deltaTime;
                 customerService.Tick(dt);
+                customerEffectService.Tick(dt);
                 transportService.Tick(dt);
                 workService.Tick(dt);
                 splitterService.Tick(dt);
@@ -129,6 +141,16 @@ public class GameBootstrap : MonoBehaviour
                 MetaSaveService.Reset();
                 SceneFlowService.LoadMainGame();
             })
+            .AddTo(disposables);
+
+        Observable.EveryUpdate()
+            .Where(_ => Input.GetKeyDown(KeyCode.B) && model.State.Value == GameState.Playing)
+            .Subscribe(_ => customerService.CheatTriggerBossFight())
+            .AddTo(disposables);
+
+        Observable.EveryUpdate()
+            .Where(_ => Input.GetKeyDown(KeyCode.V))
+            .Subscribe(_ => hudView?.ToggleSpeedPanelCheat())
             .AddTo(disposables);
     }
 
@@ -224,7 +246,7 @@ public class GameBootstrap : MonoBehaviour
         hudGo.transform.SetParent(transform, false);
         bool speedUpUnlocked = MetaSaveService.IsSpeedUpUnlocked(metaSave);
         hudView = hudGo.AddComponent<GameHudView>();
-        hudView.Setup(model, disposables, speedUpUnlocked, OnHudPrimaryClicked);
+        hudView.Setup(model, disposables, speedUpUnlocked, OnHudPrimaryClicked, metaSave.CurrentScene);
 
         var gameOverGo = new GameObject("GameOver");
         gameOverGo.transform.SetParent(transform, false);
@@ -290,6 +312,8 @@ public class GameBootstrap : MonoBehaviour
 
     public void EnterUpgradeMode(string summaryText)
     {
+        summaryText = SettleRunGold(summaryText);
+
         if (mainGameContent != null)
             mainGameContent.SetActive(false);
 
@@ -297,8 +321,66 @@ public class GameBootstrap : MonoBehaviour
             upgradeViewRoot.SetActive(true);
 
         hudView?.SetUpgradeMode(true);
+        var meta = MetaSaveService.Load();
+        hudView?.UpdateSceneDisplay(meta.CurrentScene);
         upgradePanel?.SetSummary(summaryText);
         upgradePanel?.OnShown();
+    }
+
+    string SettleRunGold(string summaryText)
+    {
+        if (runGoldSettled || model == null)
+            return summaryText ?? string.Empty;
+
+        runGoldSettled = true;
+        int runGold = model.Gold.Value;
+        var meta = MetaSaveService.Load();
+        meta.MetaGold += runGold;
+        MetaSaveService.Save(meta);
+
+        if (!string.IsNullOrEmpty(summaryText))
+            return summaryText;
+
+        return $"This run: +{runGold} Gold\nTotal: {meta.MetaGold} Gold";
+    }
+
+    void OnSceneCompleted()
+    {
+        var meta = MetaSaveService.Load();
+        meta.CurrentScene++;
+        MetaSaveService.Save(meta);
+    }
+
+    void OnWorkerEatStarted(WorkerData worker, CustomerData customer)
+    {
+        if (!workerViews.TryGetValue(worker.Id, out var workerView) || workerView == null)
+        {
+            customerEffectService.FinalizeEatenWorker(worker);
+            return;
+        }
+
+        int index = model.Customers.IndexOf(customer);
+        int slotIndex = customer.SpawnSlotIndex >= 0 ? customer.SpawnSlotIndex : index;
+        Vector3 customerPos = layout.GetCustomerPosition(slotIndex, model.Customers.Count);
+        Vector3 workerPos = workerView.WorldPosition;
+        Vector3 flyTarget = customerPos;
+
+        void OnComplete(WorkerData w)
+        {
+            workerView.EatenAnimationComplete -= OnComplete;
+            customerEffectService.FinalizeEatenWorker(w);
+            workerViews.Remove(w.Id);
+            Destroy(workerView.gameObject);
+        }
+
+        workerView.EatenAnimationComplete += OnComplete;
+
+        EatMinionSkillView.Play(
+            customerPos,
+            workerPos,
+            workerView,
+            flyTarget,
+            null);
     }
 
     void OnWorkerAdded(WorkerData worker)

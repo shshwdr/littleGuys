@@ -12,6 +12,7 @@ public class CustomerView : MonoBehaviour
 
     [Header("UI")]
     [SerializeField] Image patienceFill;
+    [SerializeField] Image effectFill;
     [SerializeField] TMP_Text orderText;
     [SerializeField] Button addButton;
     [SerializeField] Button subButton;
@@ -46,6 +47,8 @@ public class CustomerView : MonoBehaviour
         EnsureBodyRenderer();
         if (createUiIfMissing && patienceFill == null)
             CreateDefaultUi();
+        else
+            EnsureEffectBar();
 
         moveTween = transform
             .DOMove(new Vector3(targetPosition.x, targetPosition.y, 0f), 0.6f)
@@ -94,12 +97,41 @@ public class CustomerView : MonoBehaviour
         var topCanvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, 0.85f, 0f), new Vector2(220f, 120f));
         orderText = WorldUiFactory.CreateText(topCanvas.transform, "Order", customer.OrderLabel, new Vector2(0f, 30f), 28f, TextAlignmentOptions.Center);
         patienceFill = WorldUiFactory.CreateFillBar(topCanvas.transform, "Patience", new Vector2(0f, -10f), new Vector2(180f, 20f), new Color(0.2f, 0.8f, 0.3f));
+        effectFill = WorldUiFactory.CreateFillBar(topCanvas.transform, "Effect", new Vector2(0f, -35f), new Vector2(180f, 14f), new Color(0.95f, 0.35f, 0.25f, 1f));
+        effectFill.gameObject.transform.parent.gameObject.SetActive(customer.Effect == "eatMinion");
 
         var bottomCanvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, -1.05f, 0f), new Vector2(320f, 80f));
         subButton = WorldUiFactory.CreateButton(bottomCanvas.transform, "Sub", "-", new Vector2(-60f, 0f), new Vector2(50f, 40f));
         addButton = WorldUiFactory.CreateButton(bottomCanvas.transform, "Add", "+", new Vector2(60f, 0f), new Vector2(50f, 40f));
         countText = WorldUiFactory.CreateText(bottomCanvas.transform, "Count", "0", new Vector2(0f, 0f), 28f, TextAlignmentOptions.Center);
         countText.rectTransform.sizeDelta = new Vector2(40f, 40f);
+    }
+
+    void EnsureEffectBar()
+    {
+        if (customer == null || customer.Effect != "eatMinion")
+        {
+            if (effectFill != null)
+                effectFill.gameObject.transform.parent.gameObject.SetActive(false);
+            return;
+        }
+
+        if (effectFill != null)
+        {
+            effectFill.gameObject.transform.parent.gameObject.SetActive(true);
+            return;
+        }
+
+        Transform parent = patienceFill != null
+            ? patienceFill.transform.parent.parent
+            : transform;
+
+        effectFill = WorldUiFactory.CreateFillBar(
+            parent,
+            "Effect",
+            new Vector2(0f, -35f),
+            new Vector2(180f, 14f),
+            new Color(0.95f, 0.35f, 0.25f, 1f));
     }
 
     public void Bind(CompositeDisposable disposables)
@@ -110,6 +142,13 @@ public class CustomerView : MonoBehaviour
         customer.Patience
             .Subscribe(p => patienceFill.fillAmount = Mathf.Clamp01(p / customer.MaxPatience))
             .AddTo(viewDisposables);
+
+        if (effectFill != null && customer.Effect == "eatMinion")
+        {
+            customer.EffectProgress
+                .Subscribe(p => effectFill.fillAmount = p)
+                .AddTo(viewDisposables);
+        }
     }
 
     void RefreshAssignControls()
@@ -146,6 +185,9 @@ public class CustomerView : MonoBehaviour
 
         if (patienceFill != null)
             patienceFill.fillAmount = Mathf.Clamp01(customer.Patience.Value / customer.MaxPatience);
+
+        if (effectFill != null && customer.Effect == "eatMinion")
+            effectFill.fillAmount = customer.EffectProgress.Value;
 
         if (orderText != null)
             orderText.text = customer.OrderLabel;

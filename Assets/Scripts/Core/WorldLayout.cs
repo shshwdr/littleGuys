@@ -4,9 +4,15 @@ using UnityEngine;
 
 public class WorldLayout
 {
+    struct CustomerSlot
+    {
+        public CustomerSpawnPoint Point;
+        public int LocalIndex;
+    }
+
     readonly GameConfigData config;
     readonly Dictionary<ZoneType, ZonePrefab> zonePrefabs = new Dictionary<ZoneType, ZonePrefab>();
-    readonly List<CustomerSpawnPoint> customerSpawnPoints = new List<CustomerSpawnPoint>();
+    readonly List<CustomerSlot> customerSlots = new List<CustomerSlot>();
 
     public Vector2 CustomerAreaCenter = new Vector2(0f, 4.5f);
     public float CustomerSpacing = 1.85f;
@@ -27,7 +33,7 @@ public class WorldLayout
     public void RegisterFromScene()
     {
         zonePrefabs.Clear();
-        customerSpawnPoints.Clear();
+        customerSlots.Clear();
 
         foreach (var zone in Object.FindObjectsOfType<ZonePrefab>())
         {
@@ -40,16 +46,30 @@ public class WorldLayout
             zonePrefabs[zone.ZoneType] = zone;
         }
 
-        customerSpawnPoints.AddRange(
-            Object.FindObjectsOfType<CustomerSpawnPoint>()
-                .OrderBy(point => point.SlotIndex));
+        foreach (var point in Object.FindObjectsOfType<CustomerSpawnPoint>().OrderBy(p => p.SlotIndex))
+        {
+            for (int i = 0; i < point.Capacity; i++)
+                customerSlots.Add(new CustomerSlot { Point = point, LocalIndex = i });
+        }
     }
 
     public IReadOnlyList<ZonePrefab> GetSceneZones() => zonePrefabs.Values.ToList();
 
     public bool TryGetZonePrefab(ZoneType type, out ZonePrefab prefab) => zonePrefabs.TryGetValue(type, out prefab);
 
-    public int CustomerSlotCount => customerSpawnPoints.Count > 0 ? customerSpawnPoints.Count : 0;
+    public int CustomerSlotCount => customerSlots.Count > 0 ? customerSlots.Count : 0;
+
+    bool TryGetCustomerSlot(int slotIndex, out CustomerSlot slot)
+    {
+        if (slotIndex >= 0 && slotIndex < customerSlots.Count)
+        {
+            slot = customerSlots[slotIndex];
+            return true;
+        }
+
+        slot = default;
+        return false;
+    }
 
     public Vector2 GetZonePosition(ZoneType type)
     {
@@ -91,6 +111,14 @@ public class WorldLayout
         return basePosition + new Vector2(0f, config.carriedItemHeight * 0.35f);
     }
 
+    public Vector2 PlaceItemOnGround(Vector2 position, Vector2 groundReference)
+    {
+        if (position.y <= groundReference.y + 0.02f)
+            return position;
+
+        return new Vector2(position.x, groundReference.y);
+    }
+
     public Vector2 GetWorkerSlotPosition(ZoneType zone, int index, int totalInZone)
     {
         return GetSlotPositionAround(GetWorkItemPosition(zone), index, totalInZone);
@@ -126,17 +154,13 @@ public class WorldLayout
 
     public CustomerSpawnPoint GetCustomerSpawnPoint(int slotIndex)
     {
-        if (slotIndex < 0 || slotIndex >= customerSpawnPoints.Count)
-            return null;
-
-        return customerSpawnPoints[slotIndex];
+        return TryGetCustomerSlot(slotIndex, out var slot) ? slot.Point : null;
     }
 
     public Vector2 GetCustomerPosition(int index, int totalCount)
     {
-        var spawnPoint = GetCustomerSpawnPoint(index);
-        if (spawnPoint != null)
-            return spawnPoint.StandPosition;
+        if (TryGetCustomerSlot(index, out var slot))
+            return slot.Point.GetStandPosition(slot.LocalIndex);
 
         int count = Mathf.Max(totalCount, 1);
         float totalWidth = (count - 1) * CustomerSpacing;
@@ -146,27 +170,24 @@ public class WorldLayout
 
     public Vector2 GetCustomerEntryPosition(int index, int totalCount)
     {
-        var spawnPoint = GetCustomerSpawnPoint(index);
-        if (spawnPoint != null)
-            return spawnPoint.GetEntryPosition();
+        if (TryGetCustomerSlot(index, out var slot))
+            return slot.Point.GetEntryPosition(slot.LocalIndex);
 
         return GetCustomerPosition(index, totalCount) + new Vector2(-4f, 0f);
     }
 
     public Vector2 GetCustomerSacrificePosition(int index, int totalCount)
     {
-        var spawnPoint = GetCustomerSpawnPoint(index);
-        if (spawnPoint != null)
-            return spawnPoint.GetSacrificePosition();
+        if (TryGetCustomerSlot(index, out var slot))
+            return slot.Point.GetSacrificePosition(slot.LocalIndex);
 
         return GetCustomerPosition(index, totalCount) + new Vector2(0f, -1.1f);
     }
 
     public Vector2 GetCustomerDeliveryPosition(int index, int totalCount)
     {
-        var spawnPoint = GetCustomerSpawnPoint(index);
-        if (spawnPoint != null)
-            return spawnPoint.GetDeliveryPosition();
+        if (TryGetCustomerSlot(index, out var slot))
+            return slot.Point.GetDeliveryPosition(slot.LocalIndex);
 
         return GetCustomerPosition(index, totalCount) + new Vector2(0f, 0.3f);
     }

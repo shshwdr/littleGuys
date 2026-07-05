@@ -64,20 +64,13 @@ public static class UpgradeTreeLayout
             for (int i = 0; i < children.Count; i++)
             {
                 var child = children[i];
-                var dir = placementDirections[i];
-                Vector2 childPos = parentPos + ToOffset(dir, nodeSpacing);
-
-                if (TryFindExistingKey(positions, childPos, out string existingId))
+                if (!TryPlaceChild(child, parentPos, placementDirections, i, nodeSpacing, positions, directionFromParent, pending, out string overlapReason))
                 {
                     Debug.LogError(
-                        $"UpgradeTreeLayout: node '{child.identifier}' overlaps '{existingId}' at {childPos}. Remaining nodes were not placed.");
+                        $"UpgradeTreeLayout: node '{child.identifier}' could not be placed without overlap. {overlapReason} Remaining nodes were not placed.");
                     failed = true;
                     break;
                 }
-
-                positions[child.identifier] = childPos;
-                directionFromParent[child.identifier] = dir;
-                pending.Enqueue(child.identifier);
             }
 
             if (failed)
@@ -85,6 +78,38 @@ public static class UpgradeTreeLayout
         }
 
         return !failed;
+    }
+
+    static bool TryPlaceChild(
+        UpgradeInfo child,
+        Vector2 parentPos,
+        Direction[] placementDirections,
+        int preferredIndex,
+        float nodeSpacing,
+        Dictionary<string, Vector2> positions,
+        Dictionary<string, Direction> directionFromParent,
+        Queue<string> pending,
+        out string failureReason)
+    {
+        failureReason = null;
+
+        for (int attempt = 0; attempt < placementDirections.Length; attempt++)
+        {
+            int dirIndex = (preferredIndex + attempt) % placementDirections.Length;
+            var dir = placementDirections[dirIndex];
+            Vector2 childPos = parentPos + ToOffset(dir, nodeSpacing);
+
+            if (TryFindExistingKey(positions, childPos, out _))
+                continue;
+
+            positions[child.identifier] = childPos;
+            directionFromParent[child.identifier] = dir;
+            pending.Enqueue(child.identifier);
+            return true;
+        }
+
+        failureReason = $"All {placementDirections.Length} directions from parent are occupied.";
+        return false;
     }
 
     static bool TryFindExistingKey(Dictionary<string, Vector2> positions, Vector2 pos, out string existingId)

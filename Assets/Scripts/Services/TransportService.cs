@@ -65,9 +65,7 @@ public class TransportService
         var workers = GetZoneWorkers(type);
         if (workers.Count == 0)
         {
-            model.SetZonePhase(zone, ZonePhase.Idle);
-            production.CancelActiveTask(zone, type);
-            ClearSharedItem(zone);
+            TickZoneWithoutWorkers(zone, type);
             return;
         }
 
@@ -87,6 +85,41 @@ public class TransportService
                 break;
             case ZonePhase.Delivering:
                 TickDelivering(zone, type, workers, dt);
+                break;
+        }
+    }
+
+    void TickZoneWithoutWorkers(ZoneData zone, ZoneType type)
+    {
+        zone.WorkSpeed.Value = 0f;
+
+        switch (zone.Phase)
+        {
+            case ZonePhase.Returning:
+            case ZonePhase.Delivering:
+                if (zone.HasSharedItem)
+                    zone.SharedItemPosition = layout.PlaceItemOnGround(
+                        zone.SharedItemPosition,
+                        zone.SharedMoveTarget);
+                break;
+
+            case ZonePhase.Working:
+                if (zone.HasSharedItem)
+                {
+                    zone.SharedItemPosition = zone.ConsumeWorkerAsInput
+                        ? layout.GetInputPosition(zone.Type)
+                        : layout.GetWorkItemPosition(zone.Type);
+                }
+                zone.StatusText.Value = $"{Mathf.RoundToInt(zone.TaskProgress.Value * 100f)}%";
+                break;
+
+            case ZonePhase.GoingToSource:
+                zone.StatusText.Value = "Fetching";
+                break;
+
+            case ZonePhase.Idle:
+                if (zone.HasActiveStep)
+                    zone.StatusText.Value = "Waiting";
                 break;
         }
     }
@@ -161,7 +194,7 @@ public class TransportService
         ShowSourcePreview(zone, type, gatherItemPos);
         MoveWorkersToLiftFormation(workers, gatherItemPos, dt, joinLift: false);
 
-        if (!AllReadyWorkersAtFormation(workers, gatherItemPos))
+        if (!FirstWorkerAtFormation(workers, gatherItemPos))
             return;
 
         if (!TakeOneFromSource(type, zone, out var visual))
@@ -181,7 +214,7 @@ public class TransportService
 
         foreach (var worker in workers)
         {
-            worker.HasJoinedLift = worker.State != WorkerState.WalkingToZone;
+            worker.HasJoinedLift = false;
             worker.PositionLocked = false;
         }
     }
@@ -272,15 +305,19 @@ public class TransportService
 
         MoveWorkersToLiftFormation(workers, zone.SharedItemPosition, dt, joinLift: true);
 
-        if (workers.Count > 0)
+        var joinedWorkers = workers.Where(w => w.HasJoinedLift).ToList();
+        if (joinedWorkers.Count == 0)
         {
-            float speed = model.Config.GetMoveSpeed(workers.Count);
-            zone.WorkSpeed.Value = speed;
-            zone.SharedItemPosition = Vector2.MoveTowards(
-                zone.SharedItemPosition,
-                zone.SharedMoveTarget,
-                speed * dt);
+            zone.WorkSpeed.Value = 0f;
+            return;
         }
+
+        float speed = model.Config.GetMoveSpeed(joinedWorkers.Count);
+        zone.WorkSpeed.Value = speed;
+        zone.SharedItemPosition = Vector2.MoveTowards(
+            zone.SharedItemPosition,
+            zone.SharedMoveTarget,
+            speed * dt);
 
         if (zone.Phase == ZonePhase.Returning && HasReached(zone.SharedItemPosition, zone.SharedMoveTarget))
         {
@@ -421,6 +458,15 @@ public class TransportService
             model.Config.workerMoveSpeed * dt);
         worker.HasArrivedAtZone =
             Vector2.Distance(worker.Position, worker.TargetPosition) <= model.Config.arriveThreshold;
+    }
+
+    bool FirstWorkerAtFormation(List<WorkerData> workers, Vector2 objectCenter)
+    {
+        if (workers.Count == 0)
+            return false;
+
+        Vector2 slot = layout.GetLiftWorkerPosition(objectCenter, 0, workers.Count);
+        return Vector2.Distance(workers[0].Position, slot) <= model.Config.arriveThreshold;
     }
 
     bool AllReadyWorkersAtFormation(List<WorkerData> workers, Vector2 objectCenter)

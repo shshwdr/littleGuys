@@ -58,6 +58,9 @@ public static class MetaSaveService
                 case "sacrificePatience":
                     sacrificePatienceBonusPercent += info.value * level;
                     break;
+                case "time":
+                    config.levelTimeSeconds += info.value * level;
+                    break;
             }
         }
 

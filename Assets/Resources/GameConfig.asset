@@ -22,11 +22,12 @@ MonoBehaviour:
   cookDuration: 15
   wokDuration: 20
   plateDuration: 5
-  splitterDuration: 50
-  maxCustomers: 1
+  splitterDuration: 60
+  maxCustomers: 2
   customerSpawnInterval: 0
   customerMaxPatience: 100
   patienceDecayPerSecond: 1.5
+  levelTimeSeconds: 120
   workerSpacing: 0.35
   carryYOffset: 0.5
   carriedItemHeight: 0.95

@@ -1,4 +1,5 @@
 using DG.Tweening;
+using System;
 using UnityEngine;
 
 public class WorkerView : MonoBehaviour
@@ -12,10 +13,16 @@ public class WorkerView : MonoBehaviour
     Tween walkBounceTween;
     Tween punchTween;
     Tween sacrificeTween;
+    Tween eatenTween;
     bool isWorkingAnim;
     bool sacrificeAnimStarted;
+    bool eatenAnimStarted;
+    bool eatenKnockbackStarted;
 
     public event System.Action<WorkerData> SacrificeAnimationComplete;
+    public event System.Action<WorkerData> EatenAnimationComplete;
+
+    public Vector3 WorldPosition => transform.position;
 
     public void Setup(WorkerData data, GameModel gameModel, WorldLayout worldLayout, GameConfigData gameConfig)
     {
@@ -49,7 +56,16 @@ public class WorkerView : MonoBehaviour
             return;
         }
 
+        if (worker.State == WorkerState.BeingEaten)
+        {
+            if (!eatenKnockbackStarted)
+                StopWalkBounce();
+            return;
+        }
+
         sacrificeAnimStarted = false;
+        eatenAnimStarted = false;
+        eatenKnockbackStarted = false;
         UpdateMovement();
         UpdateWorkingAnimation();
         bodyTransform.rotation = Quaternion.identity;
@@ -178,6 +194,28 @@ public class WorkerView : MonoBehaviour
             .OnComplete(() => SacrificeAnimationComplete?.Invoke(worker));
     }
 
+    public void PlayKnockedToCustomer(Vector3 customerPos, Action onComplete)
+    {
+        if (eatenKnockbackStarted)
+            return;
+
+        eatenKnockbackStarted = true;
+        eatenAnimStarted = true;
+        StopWalkBounce();
+        punchTween?.Kill();
+
+        var target = new Vector3(customerPos.x, customerPos.y + 0.3f, 0f);
+        eatenTween = DOTween.Sequence()
+            .Append(transform.DOMove(target, 0.5f).SetEase(Ease.InQuad))
+            .Join(bodyTransform.DOLocalMoveY(0.12f, 0.12f).SetLoops(4, LoopType.Yoyo).SetEase(Ease.InOutSine))
+            .Append(bodyTransform.DOScale(Vector3.zero, 0.3f))
+            .OnComplete(() =>
+            {
+                onComplete?.Invoke();
+                EatenAnimationComplete?.Invoke(worker);
+            });
+    }
+
     bool IsWorkerOperating()
     {
         if (worker.AssignedZone == ZoneType.Idle)
@@ -196,7 +234,7 @@ public class WorkerView : MonoBehaviour
 
     void RefreshScale()
     {
-        if (isWorkingAnim || worker.State == WorkerState.Sacrificing)
+        if (isWorkingAnim || worker.State == WorkerState.Sacrificing || worker.State == WorkerState.BeingEaten)
             return;
 
         bodyTransform.localScale = GetBaseScaleVector();
@@ -207,5 +245,6 @@ public class WorkerView : MonoBehaviour
         walkBounceTween?.Kill();
         punchTween?.Kill();
         sacrificeTween?.Kill();
+        eatenTween?.Kill();
     }
 }

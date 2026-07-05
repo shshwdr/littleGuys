@@ -28,6 +28,19 @@ public class GameModel
     public float PatienceTimer;
     public bool HasSpawnedFirstCustomer;
 
+    public int CurrentSceneId;
+    public int SceneProgress;
+    public bool BossHasSpawned;
+    public bool InBossFight;
+    public int LevelEncounterRowIndex;
+    public int LevelEncounterCustomerIndex;
+    public float LevelTimeRemaining;
+    public float CurrentSpawnInterval;
+
+    public ReactiveProperty<int> SceneProgressChanged = new ReactiveProperty<int>(0);
+    public ReactiveProperty<bool> BossFightChanged = new ReactiveProperty<bool>(false);
+    public ReactiveProperty<float> LevelTimeChanged = new ReactiveProperty<float>(0f);
+
     public ZoneData GetZone(ZoneType type) => Zones[type];
 
     public RecipeData GetRecipe(string recipeId)

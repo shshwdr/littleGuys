@@ -3,39 +3,55 @@ using UnityEngine;
 public class CustomerSpawnPoint : MonoBehaviour
 {
     [SerializeField] int slotIndex;
+    [SerializeField] int capacity = 5;
+    [SerializeField] float spacing = 1.85f;
     [SerializeField] Transform entryPoint;
     [SerializeField] Transform sacrificePoint;
     [SerializeField] Transform deliveryPoint;
 
     public int SlotIndex => slotIndex;
+    public int Capacity => capacity > 0 ? capacity : 1;
+    public float Spacing => spacing;
 
-    public Vector2 StandPosition => transform.position;
-
-    public Vector2 GetEntryPosition()
+    public Vector2 GetStandPosition(int localIndex)
     {
+        return (Vector2)transform.position + new Vector2(-localIndex * spacing, 0f);
+    }
+
+    public Vector2 GetEntryPosition(int localIndex)
+    {
+        Vector2 stand = GetStandPosition(localIndex);
         if (entryPoint != null)
-            return entryPoint.position;
-        return StandPosition + new Vector2(-4f, 0f);
+            return stand + ((Vector2)entryPoint.position - (Vector2)transform.position);
+
+        return stand + new Vector2(-4f, 0f);
     }
 
-    public Vector2 GetSacrificePosition()
+    public Vector2 GetSacrificePosition(int localIndex)
     {
+        Vector2 stand = GetStandPosition(localIndex);
         if (sacrificePoint != null)
-            return sacrificePoint.position;
-        return StandPosition + new Vector2(0f, -1.1f);
+            return stand + ((Vector2)sacrificePoint.position - (Vector2)transform.position);
+
+        return stand + new Vector2(0f, -1.1f);
     }
 
-    public Vector2 GetDeliveryPosition()
+    public Vector2 GetDeliveryPosition(int localIndex)
     {
+        Vector2 stand = GetStandPosition(localIndex);
         if (deliveryPoint != null)
-            return deliveryPoint.position;
-        return StandPosition + new Vector2(0f, 0.3f);
+            return stand + ((Vector2)deliveryPoint.position - (Vector2)transform.position);
+
+        return stand + new Vector2(0f, 0.3f);
     }
 
     void OnDrawGizmosSelected()
     {
-        Gizmos.color = new Color(1f, 0.6f, 0.2f);
-        Gizmos.DrawWireSphere(transform.position, 0.2f);
+        for (int i = 0; i < Capacity; i++)
+        {
+            Gizmos.color = new Color(1f, 0.6f, 0.2f);
+            Gizmos.DrawWireSphere(GetStandPosition(i), 0.2f);
+        }
 
         DrawLink(entryPoint, Color.green);
         DrawLink(sacrificePoint, Color.red);
