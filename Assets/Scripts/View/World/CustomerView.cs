@@ -7,21 +7,16 @@ using UnityEngine.UI;
 public class CustomerView : MonoBehaviour
 {
     [Header("Visual")]
-    [SerializeField] SpriteRenderer bodyRenderer;
-    [SerializeField] Vector2 bodySize = new Vector2(0.8f, 0.8f);
+    [SerializeField] Image bodyImage;
+    [SerializeField, HideInInspector] SpriteRenderer bodyRenderer;
 
     [Header("UI")]
     [SerializeField] Image patienceFill;
     [SerializeField] Image effectFill;
     [SerializeField] TMP_Text orderText;
-    [SerializeField] Button addButton;
-    [SerializeField] Button subButton;
-    [SerializeField] TMP_Text countText;
+    [SerializeField] TMP_Text descText;
+    [SerializeField] Button sacrificeButton;
     [SerializeField] bool createUiIfMissing = true;
-
-    [Header("Points")]
-    [SerializeField] Transform deliveryPoint;
-    [SerializeField] Transform sacrificePoint;
 
     CustomerData customer;
     CustomerSacrificeService sacrificeService;
@@ -29,82 +24,183 @@ public class CustomerView : MonoBehaviour
     Vector2 currentTarget;
     Tween moveTween;
 
-    public Transform DeliveryPoint => deliveryPoint != null ? deliveryPoint : transform;
-    public Transform SacrificePoint => sacrificePoint != null ? sacrificePoint : transform;
-
     public void Setup(
         CustomerData data,
         Vector2 startPosition,
         Vector2 targetPosition,
         GameModel model,
         CustomerSacrificeService sacrificeSvc,
-        CompositeDisposable disposables)
+        CompositeDisposable disposables,
+        bool animateFromEntry = true)
     {
         customer = data;
         sacrificeService = sacrificeSvc;
-        transform.position = new Vector3(startPosition.x, startPosition.y, 0f);
+        currentTarget = targetPosition;
+        transform.position = animateFromEntry
+            ? new Vector3(startPosition.x, startPosition.y, 0f)
+            : new Vector3(targetPosition.x, targetPosition.y, 0f);
 
         EnsureBodyRenderer();
-        if (createUiIfMissing && patienceFill == null)
-            CreateDefaultUi();
-        else
-            EnsureEffectBar();
+        EnsureUi();
 
-        moveTween = transform
-            .DOMove(new Vector3(targetPosition.x, targetPosition.y, 0f), 0.6f)
-            .SetEase(Ease.OutQuad);
-        currentTarget = targetPosition;
+        moveTween?.Kill();
+        if (animateFromEntry)
+        {
+            moveTween = transform
+                .DOMove(new Vector3(targetPosition.x, targetPosition.y, 0f), 0.6f)
+                .SetEase(Ease.OutQuad);
+        }
 
         if (orderText != null)
             orderText.text = customer.OrderLabel;
 
-        if (addButton != null)
+        if (descText != null)
+            descText.text = customer.Name;
+
+        if (sacrificeButton != null)
         {
-            addButton.OnClickAsObservable()
+            sacrificeButton.OnClickAsObservable()
                 .Subscribe(_ => sacrificeService.TryAssignWorker(customer))
                 .AddTo(viewDisposables);
         }
 
-        if (subButton != null)
-        {
-            subButton.OnClickAsObservable()
-                .Subscribe(_ => sacrificeService.TryRecallWorker(customer))
-                .AddTo(viewDisposables);
-        }
-
         model.WorkerAssignmentChanged
-            .Subscribe(_ => RefreshAssignControls())
+            .Subscribe(_ => RefreshSacrificeControls())
             .AddTo(viewDisposables);
 
-        RefreshAssignControls();
+        RefreshSacrificeControls();
     }
 
     void EnsureBodyRenderer()
     {
+        var sprite = ResourceSpriteLoader.GetCustomer(customer?.CustomerTypeId);
+
+        EnsureBodyImage();
+
+        if (bodyImage != null)
+        {
+            bodyImage.sprite = sprite;
+            bodyImage.enabled = sprite != null;
+        }
+
         if (bodyRenderer != null)
+            bodyRenderer.enabled = false;
+    }
+
+    void EnsureBodyImage()
+    {
+        if (bodyImage != null)
             return;
 
-        bodyRenderer = ColorSpriteFactory.CreateSprite(
-            "Body",
-            transform,
-            ResourceSpriteLoader.GetCustomer(),
-            Color.white,
-            bodySize);
+        var canvas = WorldUiFactory.CreateWorldCanvas(transform, Vector3.zero, new Vector2(100f, 100f));
+        bodyImage = CreateBodyImage(canvas.transform);
+    }
+
+    Image CreateBodyImage(Transform parent)
+    {
+        var go = new GameObject("BodyImage");
+        go.transform.SetParent(parent, false);
+
+        var rect = go.AddComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(96f, 96f);
+        rect.anchoredPosition = Vector2.zero;
+
+        var image = go.AddComponent<Image>();
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        return image;
     }
 
     void CreateDefaultUi()
     {
-        var topCanvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, 0.85f, 0f), new Vector2(220f, 120f));
-        orderText = WorldUiFactory.CreateText(topCanvas.transform, "Order", customer.OrderLabel, new Vector2(0f, 30f), 28f, TextAlignmentOptions.Center);
-        patienceFill = WorldUiFactory.CreateFillBar(topCanvas.transform, "Patience", new Vector2(0f, -10f), new Vector2(180f, 20f), new Color(0.2f, 0.8f, 0.3f));
-        effectFill = WorldUiFactory.CreateFillBar(topCanvas.transform, "Effect", new Vector2(0f, -35f), new Vector2(180f, 14f), new Color(0.95f, 0.35f, 0.25f, 1f));
+        var topCanvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, 0.95f, 0f), new Vector2(260f, 150f));
+        descText = WorldUiFactory.CreateText(topCanvas.transform, "Desc", customer.Name, new Vector2(0f, 52f), 18f, TextAlignmentOptions.Center);
+        descText.rectTransform.sizeDelta = new Vector2(240f, 48f);
+        orderText = WorldUiFactory.CreateText(topCanvas.transform, "Order", customer.OrderLabel, new Vector2(0f, 18f), 28f, TextAlignmentOptions.Center);
+        patienceFill = WorldUiFactory.CreateFillBar(topCanvas.transform, "Patience", new Vector2(0f, -18f), new Vector2(180f, 20f), new Color(0.2f, 0.8f, 0.3f));
+        effectFill = WorldUiFactory.CreateFillBar(topCanvas.transform, "Effect", new Vector2(0f, -46f), new Vector2(180f, 14f), new Color(0.95f, 0.35f, 0.25f, 1f));
         effectFill.gameObject.transform.parent.gameObject.SetActive(customer.Effect == "eatMinion");
 
         var bottomCanvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, -1.05f, 0f), new Vector2(320f, 80f));
-        subButton = WorldUiFactory.CreateButton(bottomCanvas.transform, "Sub", "-", new Vector2(-60f, 0f), new Vector2(50f, 40f));
-        addButton = WorldUiFactory.CreateButton(bottomCanvas.transform, "Add", "+", new Vector2(60f, 0f), new Vector2(50f, 40f));
-        countText = WorldUiFactory.CreateText(bottomCanvas.transform, "Count", "0", new Vector2(0f, 0f), 28f, TextAlignmentOptions.Center);
-        countText.rectTransform.sizeDelta = new Vector2(40f, 40f);
+        sacrificeButton = WorldUiFactory.CreateButton(bottomCanvas.transform, "Sacrifice", "Sacrifice", Vector2.zero, new Vector2(150f, 44f));
+        EnsureSacrificeButtonVisible();
+    }
+
+    void EnsureUi()
+    {
+        if (createUiIfMissing && patienceFill == null)
+        {
+            CreateDefaultUi();
+            return;
+        }
+
+        HideLegacyAssignUi();
+        EnsureDescText();
+        EnsureSacrificeButton();
+        EnsureEffectBar();
+    }
+
+    void EnsureDescText()
+    {
+        if (descText != null || orderText == null)
+            return;
+
+        var parent = orderText.transform.parent;
+        descText = WorldUiFactory.CreateText(parent, "Desc", customer.Name, new Vector2(0f, 52f), 18f, TextAlignmentOptions.Center);
+        descText.rectTransform.sizeDelta = new Vector2(240f, 48f);
+    }
+
+    void EnsureSacrificeButton()
+    {
+        if (sacrificeButton != null)
+            return;
+
+        Canvas buttonCanvas = null;
+        foreach (var canvas in GetComponentsInChildren<Canvas>(true))
+        {
+            if (canvas == null || canvas.transform == orderText?.transform.parent)
+                continue;
+
+            buttonCanvas = canvas;
+            break;
+        }
+
+        if (buttonCanvas == null)
+            buttonCanvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, -1.05f, 0f), new Vector2(320f, 80f));
+
+        sacrificeButton = WorldUiFactory.CreateButton(buttonCanvas.transform, "Sacrifice", "Sacrifice", Vector2.zero, new Vector2(150f, 44f));
+        EnsureSacrificeButtonVisible();
+    }
+
+    void EnsureSacrificeButtonVisible()
+    {
+        if (sacrificeButton == null)
+            return;
+
+        sacrificeButton.gameObject.SetActive(true);
+
+        var canvas = sacrificeButton.transform.parent;
+        if (canvas != null)
+            canvas.gameObject.SetActive(true);
+    }
+
+    void HideLegacyAssignUi()
+    {
+        HideChildByName("Add");
+        HideChildByName("Sub");
+        HideChildByName("Count");
+    }
+
+    void HideChildByName(string childName)
+    {
+        var transforms = GetComponentsInChildren<Transform>(true);
+        foreach (var child in transforms)
+        {
+            if (child == null || child.name != childName)
+                continue;
+
+            child.gameObject.SetActive(false);
+        }
     }
 
     void EnsureEffectBar()
@@ -151,19 +247,16 @@ public class CustomerView : MonoBehaviour
         }
     }
 
-    void RefreshAssignControls()
+    void RefreshSacrificeControls()
     {
-        if (sacrificeService == null || customer == null || customer.IsServed)
+        if (sacrificeButton == null)
             return;
 
-        if (countText != null)
-            countText.text = sacrificeService.GetAssignedCount(customer).ToString();
-
-        if (addButton != null)
-            addButton.interactable = sacrificeService.CanAssign(customer);
-
-        if (subButton != null)
-            subButton.interactable = sacrificeService.CanRecall(customer);
+        EnsureSacrificeButtonVisible();
+        sacrificeButton.interactable = sacrificeService != null
+            && customer != null
+            && !customer.IsServed
+            && sacrificeService.CanSacrificeButton(customer);
     }
 
     public void MoveTo(Vector2 targetPosition)
@@ -176,6 +269,29 @@ public class CustomerView : MonoBehaviour
         moveTween = transform
             .DOMove(new Vector3(targetPosition.x, targetPosition.y, 0f), 0.35f)
             .SetEase(Ease.OutQuad);
+    }
+
+    public void SetVisible(bool visible)
+    {
+        if (bodyImage != null)
+            bodyImage.transform.parent.gameObject.SetActive(visible);
+
+        if (bodyRenderer != null)
+            bodyRenderer.enabled = visible;
+
+        SetUiVisible(visible);
+    }
+
+    void SetUiVisible(bool visible)
+    {
+        if (patienceFill != null)
+            patienceFill.transform.parent.parent.gameObject.SetActive(visible);
+
+        if (orderText != null)
+            orderText.transform.parent.gameObject.SetActive(visible);
+
+        if (sacrificeButton != null)
+            sacrificeButton.transform.parent.gameObject.SetActive(visible);
     }
 
     void Update()
@@ -191,6 +307,11 @@ public class CustomerView : MonoBehaviour
 
         if (orderText != null)
             orderText.text = customer.OrderLabel;
+
+        if (descText != null)
+            descText.text = customer.Name;
+
+        RefreshSacrificeControls();
     }
 
     void OnDestroy()
@@ -198,8 +319,7 @@ public class CustomerView : MonoBehaviour
         viewDisposables.Dispose();
         moveTween?.Kill();
         customer = null;
-        addButton = null;
-        subButton = null;
-        countText = null;
+        sacrificeButton = null;
+        descText = null;
     }
 }

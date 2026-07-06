@@ -8,7 +8,7 @@ public class CustomerEffectService
     readonly GameModel model;
     readonly WorldLayout layout;
 
-    public event Action<WorkerData, CustomerData> WorkerEatStarted;
+    public event Action<CustomerData, WorkerData> EatMinionPerformanceRequested;
 
     public CustomerEffectService(GameModel model, WorldLayout layout)
     {
@@ -23,7 +23,7 @@ public class CustomerEffectService
 
         foreach (var customer in model.Customers.ToList())
         {
-            if (customer.IsServed || string.IsNullOrEmpty(customer.Effect))
+            if (customer.IsServed || customer.IsInSilhouettePerformance || string.IsNullOrEmpty(customer.Effect))
                 continue;
 
             if (customer.Effect != "eatMinion")
@@ -55,7 +55,7 @@ public class CustomerEffectService
         RemoveWorkerFromModel(worker);
         worker.State = WorkerState.BeingEaten;
         worker.SacrificeTarget = customer;
-        WorkerEatStarted?.Invoke(worker, customer);
+        EatMinionPerformanceRequested?.Invoke(customer, worker);
     }
 
     public void OnEatAnimationComplete(CustomerData customer)

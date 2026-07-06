@@ -41,3 +41,15 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: customerView
+    uniqueID: 3524780265
+    locked: 0
+  - name: door
+    uniqueID: 81681073
+    locked: 0
+  - name: aboveDoor
+    uniqueID: 1805476491
+    locked: 0
+  - name: ui
+    uniqueID: 1237723177
+    locked: 0

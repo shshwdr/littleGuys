@@ -11,6 +11,7 @@ public class CustomerSpawnService
     readonly List<LevelInfo> levelRows = new List<LevelInfo>();
 
     public event Action SceneCompleted;
+    public event Action<CustomerData> CustomerReadyToDepart;
 
     public CustomerSpawnService(GameModel model, WorldLayout layout, int sceneId)
     {
@@ -110,7 +111,7 @@ public class CustomerSpawnService
         model.PatienceTimer -= 1f;
         foreach (var customer in model.Customers)
         {
-            if (customer.IsServed)
+            if (customer.IsServed || customer.IsInSilhouettePerformance)
                 continue;
 
             customer.Patience.Value -= model.Config.patienceDecayPerSecond;
@@ -205,6 +206,7 @@ public class CustomerSpawnService
             MaxPatience = model.Config.customerMaxPatience
         };
         customer.Patience.Value = customer.MaxPatience;
+        customer.IsAwaitingEntrance = true;
         model.Customers.Add(customer);
     }
 
@@ -273,7 +275,7 @@ public class CustomerSpawnService
 
         customer.ReceivedSatiety += satiety;
         if (customer.IsFullySatiated)
-            ServeCustomer(customer);
+            CustomerReadyToDepart?.Invoke(customer);
     }
 
     public void ResetLevelState(int sceneId)

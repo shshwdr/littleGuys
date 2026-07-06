@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UniRx;
 using UnityEngine;
@@ -5,13 +6,20 @@ using UnityEngine.EventSystems;
 
 public class GameBootstrap : MonoBehaviour
 {
-    [SerializeField] GameObject customerPrefab;
+    public static GameBootstrap Instance { get; private set; }
+
+    const string CustomerViewPrefabPath = "prefab/customerView";
 
     [Header("View Roots")]
     [Tooltip("Gameplay content hidden while upgrade view is open.")]
     [SerializeField] GameObject mainGameContent;
     [Tooltip("Upgrade UI root shown after game over.")]
     [SerializeField] GameObject upgradeViewRoot;
+
+    [Header("World Positions")]
+    [SerializeField] Transform foodOutputPos;
+    [SerializeField] Transform sacrificePos;
+    [SerializeField] Transform handPos;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoCreate()
@@ -42,17 +50,31 @@ public class GameBootstrap : MonoBehaviour
     SplitterService splitterService;
     WorkerGrowthService growthService;
     CustomerSacrificeService sacrificeService;
+    CustomerSil customerSil;
+    CustomerHand customerHand;
 
     Transform workerRoot;
     UpgradePanelView upgradePanel;
     GameHudView hudView;
     bool runGoldSettled;
+    GameObject customerViewPrefab;
+
+    public Vector3 FoodOutputPosition => foodOutputPos != null ? foodOutputPos.position : Vector3.zero;
+    public Vector3 SacrificePosition => sacrificePos != null ? sacrificePos.position : Vector3.zero;
 
     void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Debug.LogWarning("Duplicate GameBootstrap in scene; destroying extra instance.");
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
         MainThreadDispatcher.Initialize();
         EnsureEventSystem();
-        SetupCamera();
+        EnsureCamera();
         EnsureViewRoots();
         ApplyGameplayMode();
         BuildGame();
@@ -62,11 +84,16 @@ public class GameBootstrap : MonoBehaviour
     {
         Time.timeScale = 1f;
         disposables.Dispose();
+        if (Instance == this)
+            Instance = null;
     }
 
     void BuildGame()
     {
         CSVLoader.Init();
+        customerViewPrefab = Resources.Load<GameObject>(CustomerViewPrefabPath);
+        if (customerViewPrefab == null)
+            Debug.LogWarning($"Customer view prefab not found at Resources/{CustomerViewPrefabPath}.");
         var metaSave = MetaSaveService.Load();
         if (CSVLoader.GetScene(metaSave.CurrentScene) == null)
         {
@@ -77,6 +104,7 @@ public class GameBootstrap : MonoBehaviour
         var config = MetaSaveService.ApplyUpgrades(baseConfig, metaSave);
         layout = new WorldLayout(config);
         layout.RegisterFromScene();
+        layout.RegisterWorldPositions(foodOutputPos, sacrificePos);
         model = CreateModel(config, metaSave);
         productionService = new ProductionService(model);
         customerService = new CustomerSpawnService(model, layout, metaSave.CurrentScene);
@@ -87,9 +115,15 @@ public class GameBootstrap : MonoBehaviour
         transportService = new TransportService(model, layout, customerService, productionService);
         growthService = new WorkerGrowthService(model);
         sacrificeService = new CustomerSacrificeService(model, layout, assignService);
+        customerSil = FindObjectOfType<CustomerSil>();
+        customerHand = FindObjectOfType<CustomerHand>();
+        EnsureCustomerHand();
 
         customerService.SceneCompleted += OnSceneCompleted;
-        customerEffectService.WorkerEatStarted += OnWorkerEatStarted;
+        customerService.CustomerReadyToDepart += OnCustomerReadyToDepart;
+        customerEffectService.EatMinionPerformanceRequested += OnEatMinionPerformanceRequested;
+        sacrificeService.SacrificeReadyForPickup += OnSacrificeReadyForPickup;
+        transportService.FoodReadyForHandPickup += OnFoodReadyForHandPickup;
 
         splitterService.WorkerAdded += OnWorkerAdded;
         splitterService.WorkerRemoved += OnWorkerRemoved;
@@ -344,6 +378,46 @@ public class GameBootstrap : MonoBehaviour
         return $"This run: +{runGold} Gold\nTotal: {meta.MetaGold} Gold";
     }
 
+    void EnsureCustomerHand()
+    {
+        if (customerHand != null)
+            return;
+
+        customerHand = FindObjectOfType<CustomerHand>();
+    }
+
+    CustomerHand EnsureCustomerHandFor(string identifier)
+    {
+        customerHand = CustomerHand.SetIdentifier(
+            identifier,
+            GetCustomerHandParent(),
+            GetCustomerHandGrabAnchor());
+
+        if (customerHand != null && handPos != null)
+            customerHand.AlignGrabTo(handPos.position);
+
+        return customerHand;
+    }
+
+    Vector3? GetCustomerHandGrabAnchor()
+    {
+        return handPos != null ? handPos.position : (Vector3?)null;
+    }
+
+    Transform GetCustomerHandParent()
+    {
+        if (handPos != null)
+            return handPos.parent;
+
+        if (customerHand != null)
+            return customerHand.transform.parent;
+
+        if (customerSil != null)
+            return customerSil.transform.parent;
+
+        return GetMainGameParent();
+    }
+
     void OnSceneCompleted()
     {
         var meta = MetaSaveService.Load();
@@ -351,36 +425,183 @@ public class GameBootstrap : MonoBehaviour
         MetaSaveService.Save(meta);
     }
 
-    void OnWorkerEatStarted(WorkerData worker, CustomerData customer)
+    void OnEatMinionPerformanceRequested(CustomerData customer, WorkerData worker)
     {
-        if (!workerViews.TryGetValue(worker.Id, out var workerView) || workerView == null)
+        workerViews.TryGetValue(worker.Id, out var workerView);
+        Vector3 pickupPosition = workerView != null
+            ? workerView.WorldPosition
+            : customerHand != null ? customerHand.OriginPosition : Vector3.zero;
+
+        QueueHandDoorAction(customer?.CustomerTypeId ?? "normal", closeDoor =>
         {
-            customerEffectService.FinalizeEatenWorker(worker);
+            customerHand = EnsureCustomerHandFor(customer?.CustomerTypeId ?? "normal");
+            PlayHandPickupAt(
+                workerView != null ? workerView.transform : null,
+                pickupPosition,
+                () =>
+                {
+                    if (workerViews.TryGetValue(worker.Id, out var view))
+                    {
+                        workerViews.Remove(worker.Id);
+                        if (view != null)
+                            Destroy(view.gameObject);
+                    }
+
+                    customerEffectService.FinalizeEatenWorker(worker);
+                },
+                closeDoor);
+        });
+    }
+
+    void OnSacrificeReadyForPickup(WorkerData worker)
+    {
+        if (worker == null)
+            return;
+
+        workerViews.TryGetValue(worker.Id, out var workerView);
+        string identifier = worker.SacrificeTarget?.CustomerTypeId ?? "normal";
+        Vector3 pickupPosition = new Vector3(worker.Position.x, worker.Position.y, 0f);
+
+        QueueHandDoorAction(identifier, closeDoor =>
+        {
+            customerHand = EnsureCustomerHandFor(identifier);
+            PlayHandPickupAt(
+                workerView != null ? workerView.transform : null,
+                pickupPosition,
+                () =>
+                {
+                    sacrificeService.FinalizeSacrifice(worker);
+                    if (workerViews.TryGetValue(worker.Id, out var view))
+                    {
+                        workerViews.Remove(worker.Id);
+                        if (view != null)
+                            Destroy(view.gameObject);
+                    }
+                },
+                closeDoor);
+        });
+    }
+
+    void OnFoodReadyForHandPickup(FoodHandPickupRequest request)
+    {
+        var customer = request.Customer;
+        QueueHandDoorAction(customer?.CustomerTypeId ?? "normal", closeDoor =>
+        {
+            customerHand = EnsureCustomerHandFor(customer?.CustomerTypeId ?? "normal");
+            if (customerHand == null)
+            {
+                CompleteFoodDelivery(request);
+                closeDoor?.Invoke();
+                return;
+            }
+
+            RunHandFoodPickup(request, closeDoor);
+        });
+    }
+
+    void QueueHandDoorAction(string identifier, Action<Action> onDoorOpened)
+    {
+        if (customerSil != null)
+            customerSil.QueueHandAction(identifier, onDoorOpened);
+        else
+        {
+            EnsureCustomerHandFor(identifier);
+            onDoorOpened?.Invoke(null);
+        }
+    }
+
+    void QueueBossDoorAction(CustomerData customer, Action<Action> onDoorOpened)
+    {
+        string identifier = customer?.CustomerTypeId ?? "normal";
+
+        if (customerSil != null)
+            customerSil.QueueBossEntrance(identifier, onDoorOpened);
+        else
+            onDoorOpened?.Invoke(null);
+    }
+
+    void PlayHandPickupAt(Transform item, Vector3 pickupPosition, Action onDelivered, Action closeDoor)
+    {
+        if (customerHand == null)
+        {
+            onDelivered?.Invoke();
+            closeDoor?.Invoke();
             return;
         }
 
-        int index = model.Customers.IndexOf(customer);
-        int slotIndex = customer.SpawnSlotIndex >= 0 ? customer.SpawnSlotIndex : index;
-        Vector3 customerPos = layout.GetCustomerPosition(slotIndex, model.Customers.Count);
-        Vector3 workerPos = workerView.WorldPosition;
-        Vector3 flyTarget = customerPos;
+        customerHand.PlayHandSequence(
+            pickupPosition,
+            onBeforeExtend: () => customerHand.SetHandOpen(true),
+            onAtTarget: () =>
+            {
+                if (item != null)
+                {
+                    customerHand.SetHandOpen(false);
+                    customerHand.AttachToGrab(item);
+                }
+            },
+            onComplete: () =>
+            {
+                customerHand.SetHandOpen(true);
+                onDelivered?.Invoke();
+                closeDoor?.Invoke();
+            });
+    }
 
-        void OnComplete(WorkerData w)
-        {
-            workerView.EatenAnimationComplete -= OnComplete;
-            customerEffectService.FinalizeEatenWorker(w);
-            workerViews.Remove(w.Id);
-            Destroy(workerView.gameObject);
-        }
+    void RunHandFoodPickup(FoodHandPickupRequest request, Action closeDoor)
+    {
+        GameObject foodGo = null;
+        customerHand.PlayHandSequence(
+            layout.GetFoodOutputPosition(),
+            onBeforeExtend: () => customerHand.SetHandOpen(true),
+            onAtTarget: () =>
+            {
+                foodGo = CreateHandFoodVisual(request);
+                customerHand.SetHandOpen(false);
+                customerHand.AttachToGrab(foodGo.transform);
+            },
+            onComplete: () =>
+            {
+                if (foodGo != null)
+                    Destroy(foodGo);
 
-        workerView.EatenAnimationComplete += OnComplete;
+                customerHand.SetHandOpen(true);
+                CompleteFoodDelivery(request);
+                closeDoor?.Invoke();
+            });
+    }
 
-        EatMinionSkillView.Play(
-            customerPos,
-            workerPos,
-            workerView,
-            flyTarget,
-            null);
+    void CompleteFoodDelivery(FoodHandPickupRequest request)
+    {
+        if (request.Customer == null)
+            return;
+
+        var recipe = model.GetRecipe(request.RecipeId);
+        int satiety = recipe != null ? recipe.Satiety : 0;
+        customerService.AddSatiety(request.Customer, satiety);
+        productionService.OnOrderDelivered(request.OrderId);
+    }
+
+    GameObject CreateHandFoodVisual(FoodHandPickupRequest request)
+    {
+        var go = new GameObject("HandFood");
+        float size = model.Config.foodSpriteSize * 1.15f;
+        var renderer = ColorSpriteFactory.CreateSprite(
+            "Food",
+            go.transform,
+            ResourceSpriteLoader.GetFoodVisual(request.Visual),
+            FoodVisualColors.GetTint(request.Visual, request.Stage),
+            new Vector2(size, size));
+        renderer.transform.position = layout.GetFoodOutputPosition();
+        return go;
+    }
+
+    void OnCustomerReadyToDepart(CustomerData customer)
+    {
+        if (customer == null || customer.IsServed)
+            return;
+
+        customerService.ServeCustomer(customer);
     }
 
     void OnWorkerAdded(WorkerData worker)
@@ -392,7 +613,6 @@ public class GameBootstrap : MonoBehaviour
         go.transform.SetParent(workerRoot, false);
         var view = go.AddComponent<WorkerView>();
         view.Setup(worker, model, layout, model.Config);
-        view.SacrificeAnimationComplete += sacrificeService.FinalizeSacrifice;
         workerViews[worker.Id] = view;
     }
 
@@ -408,30 +628,103 @@ public class GameBootstrap : MonoBehaviour
 
     void OnCustomerAdded(CustomerData customer)
     {
-        int index = customer.SpawnSlotIndex >= 0 ? customer.SpawnSlotIndex : model.Customers.IndexOf(customer);
-        int total = model.Customers.Count;
-        Vector2 target = layout.GetCustomerPosition(index, total);
-        Vector2 entry = layout.GetCustomerEntryPosition(index, total);
-
-        CustomerView view;
-        if (customerPrefab != null)
+        if (customerSil == null && customerHand == null)
         {
-            var go = Instantiate(customerPrefab, target, Quaternion.identity);
+            customer.IsAwaitingEntrance = false;
+            CreateCustomerView(customer);
+            RefreshCustomerPositions();
+            return;
+        }
+
+        if (customer.IsBoss)
+            QueueBossDoorAction(customer, closeDoor => RunCustomerEntrance(customer, closeDoor));
+        else
+            QueueHandDoorAction(customer.CustomerTypeId, closeDoor => RunCustomerEntrance(customer, closeDoor));
+    }
+
+    void RunCustomerEntrance(CustomerData customer, Action closeDoor)
+    {
+        if (customer == null || customer.IsServed)
+        {
+            closeDoor?.Invoke();
+            return;
+        }
+
+        customerHand = EnsureCustomerHandFor(customer.CustomerTypeId) ?? CustomerHand.Instance;
+        if (customerHand == null)
+        {
+            customer.IsAwaitingEntrance = false;
+            CreateCustomerView(customer);
+            RefreshCustomerPositions();
+            closeDoor?.Invoke();
+            return;
+        }
+
+        int index = customer.SpawnSlotIndex >= 0 ? customer.SpawnSlotIndex : model.Customers.IndexOf(customer);
+        Vector3 targetPos = layout.GetCustomerPosition(index, model.Customers.Count);
+        CustomerView carriedView = null;
+
+        customerHand.PlayHandSequence(
+            targetPos,
+            onBeforeExtend: () =>
+            {
+                // 入场流程：先切到 close，再把顾客挂到抓取点后送到站位
+                customerHand.SetHandOpen(false);
+                carriedView = CreateCustomerViewForCarry(customer, targetPos);
+                customerHand.AttachToGrab(carriedView.transform);
+            },
+            onAtTarget: () =>
+            {
+                customerHand.SetHandOpen(true);
+                customerHand.DetachAtWorldPosition(carriedView.transform, targetPos);
+                customerViews[customer] = carriedView;
+                carriedView.Bind(disposables);
+                customer.IsAwaitingEntrance = false;
+                RefreshCustomerPositions();
+            },
+            onComplete: () =>
+            {
+                customerHand.SetHandOpen(true);
+                closeDoor?.Invoke();
+            });
+    }
+
+    CustomerView CreateCustomerViewForCarry(CustomerData customer, Vector2 target)
+    {
+        var view = InstantiateCustomerView(customer, target);
+        view.Setup(customer, target, target, model, sacrificeService, disposables, animateFromEntry: false);
+        return view;
+    }
+
+    void CreateCustomerView(CustomerData customer)
+    {
+        int index = customer.SpawnSlotIndex >= 0 ? customer.SpawnSlotIndex : model.Customers.IndexOf(customer);
+        Vector2 target = layout.GetCustomerPosition(index, model.Customers.Count);
+
+        var view = InstantiateCustomerView(customer, target);
+        view.Setup(customer, target, target, model, sacrificeService, disposables, animateFromEntry: false);
+        view.Bind(disposables);
+        customerViews[customer] = view;
+    }
+
+    CustomerView InstantiateCustomerView(CustomerData customer, Vector2 target)
+    {
+        GameObject go;
+        if (customerViewPrefab != null)
+        {
+            go = Instantiate(customerViewPrefab, target, Quaternion.identity);
             go.name = "Customer_" + customer.Id;
-            view = go.GetComponent<CustomerView>();
-            if (view == null)
-                view = go.AddComponent<CustomerView>();
         }
         else
         {
-            var go = new GameObject("Customer_" + customer.Id);
-            view = go.AddComponent<CustomerView>();
+            go = new GameObject("Customer_" + customer.Id);
         }
 
-        view.Setup(customer, entry, target, model, sacrificeService, disposables);
-        view.Bind(disposables);
-        customerViews[customer] = view;
-        RefreshCustomerPositions();
+        var view = go.GetComponent<CustomerView>();
+        if (view == null)
+            view = go.AddComponent<CustomerView>();
+
+        return view;
     }
 
     void OnCustomerRemoved(CustomerData customer)
@@ -469,21 +762,14 @@ public class GameBootstrap : MonoBehaviour
         es.AddComponent<StandaloneInputModule>();
     }
 
-    void SetupCamera()
+    void EnsureCamera()
     {
-        var cam = Camera.main;
-        if (cam == null)
-        {
-            var camGo = new GameObject("Main Camera");
-            cam = camGo.AddComponent<Camera>();
-            cam.tag = "MainCamera";
-            cam.orthographic = true;
-            cam.orthographicSize = 7.5f;
-            cam.transform.position = new Vector3(0f, 0.5f, -10f);
-            cam.backgroundColor = new Color(0.12f, 0.12f, 0.15f);
+        if (Camera.main != null)
             return;
-        }
 
-        cam.orthographic = true;
+        var camGo = new GameObject("Main Camera");
+        var cam = camGo.AddComponent<Camera>();
+        cam.tag = "MainCamera";
+        camGo.AddComponent<AudioListener>();
     }
 }

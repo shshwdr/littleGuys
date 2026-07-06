@@ -52,7 +52,8 @@ public class WorkerView : MonoBehaviour
 
         if (worker.State == WorkerState.Sacrificing)
         {
-            UpdateSacrificeAnimation();
+            StopWalkBounce();
+            transform.position = new Vector3(worker.Position.x, worker.Position.y, 0f);
             return;
         }
 
@@ -182,7 +183,7 @@ public class WorkerView : MonoBehaviour
             {
                 var customer = worker.SacrificeTarget;
                 int slotIndex = customer.SpawnSlotIndex >= 0 ? customer.SpawnSlotIndex : index;
-                customerPos = layout.GetCustomerSacrificePosition(slotIndex, model.Customers.Count);
+                customerPos = layout.GetCustomerPosition(slotIndex, model.Customers.Count);
             }
         }
 

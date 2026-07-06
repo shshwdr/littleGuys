@@ -9,6 +9,7 @@ public class CustomerSacrificeService
     readonly WorkerAssignService assignService;
 
     public event Action<WorkerData> WorkerRemoved;
+    public event Action<WorkerData> SacrificeReadyForPickup;
 
     public CustomerSacrificeService(GameModel model, WorldLayout layout, WorkerAssignService assignService)
     {
@@ -27,7 +28,21 @@ public class CustomerSacrificeService
 
     public bool CanAssign(CustomerData customer)
     {
+        if (!CanSacrificeButton(customer))
+            return false;
+
+        if (customer.IsInSilhouettePerformance)
+            return false;
+
+        return true;
+    }
+
+    public bool CanSacrificeButton(CustomerData customer)
+    {
         if (customer == null || customer.IsServed)
+            return false;
+
+        if (GetAssignedCount(customer) > 0)
             return false;
 
         return model.Workers.Any(w => w.AssignedZone == ZoneType.Idle && w.CanAssign);
@@ -35,7 +50,7 @@ public class CustomerSacrificeService
 
     public bool CanRecall(CustomerData customer)
     {
-        if (customer == null || customer.IsServed)
+        if (customer == null || customer.IsServed || customer.IsInSilhouettePerformance)
             return false;
 
         return model.Workers.Any(w =>
@@ -44,13 +59,14 @@ public class CustomerSacrificeService
 
     public bool TryAssignWorker(CustomerData customer)
     {
-        if (!CanAssign(customer))
+        if (!CanSacrificeButton(customer))
             return false;
 
         var worker = model.Workers.First(w => w.AssignedZone == ZoneType.Idle && w.CanAssign);
         worker.SacrificeTarget = customer;
         worker.HasArrivedAtZone = false;
         worker.State = WorkerState.WalkingToZone;
+        RefreshSacrificeQueue();
         model.NotifyWorkerAssignmentChanged();
         return true;
     }
@@ -64,6 +80,8 @@ public class CustomerSacrificeService
             w.SacrificeTarget == customer && w.State != WorkerState.Sacrificing);
 
         worker.SacrificeTarget = null;
+        worker.SacrificeQueueIndex = -1;
+        RefreshSacrificeQueue();
         assignService.AssignWorkerToZone(worker, ZoneType.Idle);
         return true;
     }
@@ -82,9 +100,7 @@ public class CustomerSacrificeService
                 continue;
             }
 
-            int index = model.Customers.IndexOf(customer);
-            int slotIndex = customer.SpawnSlotIndex >= 0 ? customer.SpawnSlotIndex : index;
-            Vector2 target = layout.GetCustomerSacrificePosition(slotIndex, model.Customers.Count);
+            Vector2 target = GetSacrificeTargetPosition(worker.SacrificeQueueIndex);
             worker.TargetPosition = target;
             worker.Position = Vector2.MoveTowards(
                 worker.Position,
@@ -98,9 +114,37 @@ public class CustomerSacrificeService
             if (!worker.HasArrivedAtZone)
                 continue;
 
+            if (worker.SacrificeQueueIndex != 0)
+                continue;
+
             worker.State = WorkerState.Sacrificing;
             worker.Position = target;
+            SacrificeReadyForPickup?.Invoke(worker);
         }
+    }
+
+    public void RefreshSacrificeQueue()
+    {
+        var queued = model.Workers
+            .Where(w => w.SacrificeTarget != null
+                        && (w.State == WorkerState.WalkingToZone || w.State == WorkerState.Sacrificing))
+            .OrderBy(w => w.Id)
+            .ToList();
+
+        for (int i = 0; i < queued.Count; i++)
+            queued[i].SacrificeQueueIndex = i;
+
+        foreach (var worker in model.Workers)
+        {
+            if (worker.SacrificeTarget == null)
+                worker.SacrificeQueueIndex = -1;
+        }
+    }
+
+    Vector2 GetSacrificeTargetPosition(int queueIndex)
+    {
+        Vector2 basePos = layout.GetSacrificeQueueBasePosition();
+        return layout.GetSacrificeQueuePosition(basePos, queueIndex);
     }
 
     public void FinalizeSacrifice(WorkerData worker)
@@ -116,12 +160,14 @@ public class CustomerSacrificeService
         }
 
         worker.SacrificeTarget = null;
+        worker.SacrificeQueueIndex = -1;
         if (worker.AssignedZone != ZoneType.Idle)
             model.GetZone(worker.AssignedZone).WorkerCount.Value--;
 
         model.Workers.Remove(worker);
         model.GetZone(ZoneType.Idle).WorkerCount.Value =
             model.Workers.Count(w => w.AssignedZone == ZoneType.Idle);
+        RefreshSacrificeQueue();
         model.NotifyWorkerAssignmentChanged();
         WorkerRemoved?.Invoke(worker);
     }
@@ -129,6 +175,8 @@ public class CustomerSacrificeService
     void CancelSacrifice(WorkerData worker)
     {
         worker.SacrificeTarget = null;
+        worker.SacrificeQueueIndex = -1;
+        RefreshSacrificeQueue();
         assignService.AssignWorkerToZone(worker, ZoneType.Idle);
     }
 }

@@ -1,9 +1,13 @@
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
 public static class ResourceSpriteLoader
 {
     static Sprite customerSprite;
+    static Sprite customerSilFallbackSprite;
+    static readonly Dictionary<string, Sprite> customerSpritesById = new Dictionary<string, Sprite>();
+    static readonly Dictionary<string, Sprite> customerSilSpritesById = new Dictionary<string, Sprite>();
     static Sprite foodSprite;
     static Sprite vegSprite;
     static Sprite meatSprite;
@@ -11,6 +15,52 @@ public static class ResourceSpriteLoader
     static Sprite squareSprite;
 
     public static Sprite GetCustomer() => LoadFirst(ref customerSprite, "customer");
+
+    public static Sprite GetCustomer(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier))
+            return GetCustomer();
+
+        if (customerSpritesById.TryGetValue(identifier, out var cached) && cached != null)
+            return cached;
+
+        var sprite = LoadSpriteAtPath("customer/" + identifier) ?? GetCustomer();
+        customerSpritesById[identifier] = sprite;
+        return sprite;
+    }
+
+    public static Sprite GetCustomerSil(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier))
+            return LoadFirstCustomerSil();
+
+        if (customerSilSpritesById.TryGetValue(identifier, out var cached) && cached != null)
+            return cached;
+
+        var sprite = LoadSpriteAtPath("customerSil/" + identifier) ?? LoadFirstCustomerSil();
+        customerSilSpritesById[identifier] = sprite;
+        return sprite;
+    }
+
+    public static Sprite GetBossHead(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier))
+            return null;
+
+        return LoadSpriteAtPath("bossHead/" + identifier);
+    }
+
+    public static Sprite GetBossHeadAlt(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier))
+            return null;
+
+        return LoadSpriteAtPath("bossHead/" + identifier + "2")
+            ?? LoadSpriteAtPath("bossHead/" + identifier);
+    }
+
+    static Sprite LoadFirstCustomerSil() => LoadFirst(ref customerSilFallbackSprite, "customerSil");
+
     public static Sprite GetFood() => LoadFirst(ref foodSprite, "food");
     public static Sprite GetVeg() => LoadSprite(ref vegSprite, "food/veg") ?? GetFood();
     public static Sprite GetMeat() => LoadSprite(ref meatSprite, "food/meat") ?? GetFood();
@@ -37,20 +87,25 @@ public static class ResourceSpriteLoader
         if (cache != null)
             return cache;
 
-        cache = Resources.Load<Sprite>(resourcePath);
-        if (cache != null)
-            return cache;
+        cache = LoadSpriteAtPath(resourcePath);
+        return cache;
+    }
+
+    static Sprite LoadSpriteAtPath(string resourcePath)
+    {
+        var sprite = Resources.Load<Sprite>(resourcePath);
+        if (sprite != null)
+            return sprite;
 
         var texture = Resources.Load<Texture2D>(resourcePath);
         if (texture == null)
             return null;
 
-        cache = Sprite.Create(
+        return Sprite.Create(
             texture,
             new Rect(0f, 0f, texture.width, texture.height),
             new Vector2(0.5f, 0.5f),
             Mathf.Max(texture.width, texture.height));
-        return cache;
     }
 
     static Sprite LoadFirst(ref Sprite cache, string folder)

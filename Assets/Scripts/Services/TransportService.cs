@@ -3,6 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+public struct FoodHandPickupRequest
+{
+    public CustomerData Customer;
+    public FoodStage Stage;
+    public FoodVisual Visual;
+    public string RecipeId;
+    public int OrderId;
+}
+
 public class TransportService
 {
     readonly GameModel model;
@@ -11,6 +20,7 @@ public class TransportService
     readonly ProductionService production;
 
     public event Action<WorkerData> WorkerRemoved;
+    public event Action<FoodHandPickupRequest> FoodReadyForHandPickup;
 
     static readonly ZoneType[] WorkZones =
     {
@@ -271,16 +281,27 @@ public class TransportService
             return;
         }
 
-        Vector2 target = layout.GetCustomerDeliveryPosition(customerIndex, model.Customers.Count)
-            + new Vector2(0f, model.Config.carryYOffset * 0.5f);
+        Vector2 target = GetFoodOutputPosition();
         TickCarrying(zone, type, workers, dt, target, "Delivering");
 
         if (!HasReached(zone.SharedItemPosition, target))
             return;
 
-        customerService.AddSatiety(zone.DeliveryCustomer, GetRecipeSatiety(zone.CurrentRecipeId));
-        production.OnOrderDelivered(zone.CurrentOrderId);
+        var request = new FoodHandPickupRequest
+        {
+            Customer = zone.DeliveryCustomer,
+            Stage = zone.SharedItemStage,
+            Visual = zone.SharedFoodVisual,
+            RecipeId = zone.CurrentRecipeId,
+            OrderId = zone.CurrentOrderId
+        };
+        FoodReadyForHandPickup?.Invoke(request);
         ResetAfterDelivery(zone);
+    }
+
+    Vector2 GetFoodOutputPosition()
+    {
+        return layout.GetFoodOutputPosition();
     }
 
     int GetRecipeSatiety(string recipeId)

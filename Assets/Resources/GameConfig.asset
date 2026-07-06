@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: GameConfig
   m_EditorClassIdentifier: 
   totalWorkers: 2
-  maxWorkersPerZone: 2
+  maxWorkersPerZone: 3
   workerMoveSpeed: 4
   carryMoveSpeedDivisor: 30
   smallWorkerGrowTime: 10
@@ -37,3 +37,4 @@ MonoBehaviour:
   foodSpriteSize: 0.75
   sourceFetchOffsetY: 0.9
   workRotationSpeed: 180
+  sacrificeQueueOffset: {x: -0.45, y: 0}
