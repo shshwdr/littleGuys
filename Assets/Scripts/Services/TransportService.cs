@@ -96,6 +96,9 @@ public class TransportService
             case ZonePhase.Delivering:
                 TickDelivering(zone, type, workers, dt);
                 break;
+            case ZonePhase.AwaitingHandPickup:
+                TickAwaitingHandPickup(zone, type, workers, dt);
+                break;
         }
     }
 
@@ -107,6 +110,7 @@ public class TransportService
         {
             case ZonePhase.Returning:
             case ZonePhase.Delivering:
+            case ZonePhase.AwaitingHandPickup:
                 if (zone.HasSharedItem)
                     zone.SharedItemPosition = layout.PlaceItemOnGround(
                         zone.SharedItemPosition,
@@ -296,6 +300,42 @@ public class TransportService
             OrderId = zone.CurrentOrderId
         };
         FoodReadyForHandPickup?.Invoke(request);
+        BeginAwaitingHandPickup(zone, type, workers);
+    }
+
+    void BeginAwaitingHandPickup(ZoneData zone, ZoneType type, List<WorkerData> workers)
+    {
+        zone.SharedItemPosition = GetFoodOutputPosition();
+        zone.StatusText.Value = "Waiting";
+        zone.WorkSpeed.Value = 0f;
+        model.SetZonePhase(zone, ZonePhase.AwaitingHandPickup);
+        UnlockWorkerPositions(workers);
+        MoveWorkersToZoneSlots(workers, type, 0f);
+    }
+
+    void TickAwaitingHandPickup(ZoneData zone, ZoneType type, List<WorkerData> workers, float dt)
+    {
+        zone.SharedItemPosition = GetFoodOutputPosition();
+        zone.StatusText.Value = "Waiting";
+
+        if (zone.DeliveryCustomer != null && zone.DeliveryCustomer.IsServed)
+        {
+            ResetAfterDelivery(zone);
+            UnlockWorkerPositions(workers);
+            MoveWorkersToZoneSlots(workers, type, dt);
+            return;
+        }
+
+        UnlockWorkerPositions(workers);
+        MoveWorkersToZoneSlots(workers, type, dt);
+    }
+
+    public void CompleteAwaitingHandPickup(int orderId)
+    {
+        var zone = model.GetZone(ZoneType.Plate);
+        if (zone.Phase != ZonePhase.AwaitingHandPickup || zone.CurrentOrderId != orderId)
+            return;
+
         ResetAfterDelivery(zone);
     }
 

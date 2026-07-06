@@ -491,6 +491,7 @@ public class GameBootstrap : MonoBehaviour
             if (customerHand == null)
             {
                 CompleteFoodDelivery(request);
+                transportService.CompleteAwaitingHandPickup(request.OrderId);
                 closeDoor?.Invoke();
                 return;
             }
@@ -550,20 +551,39 @@ public class GameBootstrap : MonoBehaviour
 
     void RunHandFoodPickup(FoodHandPickupRequest request, Action closeDoor)
     {
-        GameObject foodGo = null;
+        ZoneItemView plateItemView = null;
+        if (layout.TryGetZonePrefab(ZoneType.Plate, out var platePrefab))
+            plateItemView = platePrefab.ItemView;
+
+        Transform foodTransform = plateItemView != null ? plateItemView.transform : null;
+        GameObject fallbackFoodGo = null;
+
         customerHand.PlayHandSequence(
             layout.GetFoodOutputPosition(),
             onBeforeExtend: () => customerHand.SetHandOpen(true),
             onAtTarget: () =>
             {
-                foodGo = CreateHandFoodVisual(request);
+                if (foodTransform == null)
+                {
+                    fallbackFoodGo = CreateHandFoodVisual(request);
+                    foodTransform = fallbackFoodGo.transform;
+                }
+                else
+                {
+                    plateItemView.SetExternallyControlled(true);
+                }
+
                 customerHand.SetHandOpen(false);
-                customerHand.AttachToGrab(foodGo.transform);
+                customerHand.AttachToGrab(foodTransform);
             },
             onComplete: () =>
             {
-                if (foodGo != null)
-                    Destroy(foodGo);
+                if (plateItemView != null)
+                    plateItemView.ResetAfterCarry();
+                else if (fallbackFoodGo != null)
+                    Destroy(fallbackFoodGo);
+
+                transportService.CompleteAwaitingHandPickup(request.OrderId);
 
                 customerHand.SetHandOpen(true);
                 CompleteFoodDelivery(request);

@@ -18,6 +18,7 @@ public class ZonePrefab : MonoBehaviour
     public ZoneType ZoneType => zoneType;
     public bool StartsUnlocked => startsUnlocked;
     public string DisplayLabel => string.IsNullOrEmpty(displayLabel) ? zoneType.ToString() : displayLabel;
+    public ZoneItemView ItemView => itemView;
 
     public Vector2 RootPosition => transform.position;
 

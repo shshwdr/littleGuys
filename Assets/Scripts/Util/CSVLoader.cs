@@ -46,6 +46,7 @@ public class CustomerInfo
     public string desc;
     public string effect;
     public int value;
+    public int @base;
 
     public string GetDisplayText()
     {
