@@ -11,6 +11,8 @@ public class CustomerSil : MonoBehaviour
     [Header("References")]
     [SerializeField] GameObject doorLight;
     [SerializeField] SpriteRenderer customerSprite;
+    [SerializeField] Transform customerStart;
+    [SerializeField] Transform customerEnd;
     [SerializeField] Transform maskGameobject;
     [SerializeField] Transform startPos;
     [SerializeField] Transform endPos;
@@ -85,6 +87,20 @@ public class CustomerSil : MonoBehaviour
 
         if (transform.childCount > 1 && customerSprite == null)
             customerSprite = transform.GetChild(1).GetComponent<SpriteRenderer>();
+
+        if (customerStart == null)
+        {
+            var start = transform.Find("CustomerStart");
+            if (start != null)
+                customerStart = start;
+        }
+
+        if (customerEnd == null)
+        {
+            var end = transform.Find("CustomerEnd");
+            if (end != null)
+                customerEnd = end;
+        }
 
         if (transform.childCount > 2 && doorLight == null)
             doorLight = transform.GetChild(2).gameObject;
@@ -232,9 +248,9 @@ public class CustomerSil : MonoBehaviour
 
         activeTween?.Kill();
         activeTween = DOTween.Sequence()
-            .Append(MoveMask(GetEndPosition()))
+            .Append(MoveDoorAndCustomer(GetEndPosition(), GetCustomerEndPosition()))
             .AppendInterval(holdDuration)
-            .Append(MoveMask(GetStartPosition()))
+            .Append(MoveDoorAndCustomer(GetStartPosition(), GetCustomerStartPosition()))
             .OnComplete(() => FinishRequest(request));
     }
 
@@ -243,7 +259,7 @@ public class CustomerSil : MonoBehaviour
         PrepareForPlay(request.Identifier);
 
         activeTween?.Kill();
-        activeTween = MoveMask(GetEndPosition())
+        activeTween = MoveDoorAndCustomer(GetEndPosition(), GetCustomerEndPosition())
             .OnComplete(() =>
             {
                 if (request.OnDoorOpenedWithClose == null)
@@ -268,12 +284,12 @@ public class CustomerSil : MonoBehaviour
         PrepareForPlay(request.Identifier);
         SetBossHeadActive(false);
 
-        yield return MoveMaskCoroutine(GetEndPosition(), doorMoveDuration);
+        yield return MoveDoorAndCustomerCoroutine(GetEndPosition(), GetCustomerEndPosition(), doorMoveDuration);
         yield return BossHeadRoutine(request.Identifier);
 
         if (request.OnDoorOpenedWithClose == null)
         {
-            yield return MoveMaskCoroutine(GetStartPosition(), doorMoveDuration);
+            yield return MoveDoorAndCustomerCoroutine(GetStartPosition(), GetCustomerStartPosition(), doorMoveDuration);
             FinishRequest(request);
             activeRoutine = null;
             yield break;
@@ -368,7 +384,7 @@ public class CustomerSil : MonoBehaviour
     void StartClose(Action onComplete)
     {
         activeTween?.Kill();
-        activeTween = MoveMask(GetStartPosition())
+        activeTween = MoveDoorAndCustomer(GetStartPosition(), GetCustomerStartPosition())
             .OnComplete(() => onComplete?.Invoke());
     }
 
@@ -380,6 +396,7 @@ public class CustomerSil : MonoBehaviour
         if (bossHeadSprite != null && bossHeadStartPos != null)
             bossHeadSprite.transform.localPosition = bossHeadStartPos.localPosition;
 
+        ResetCustomerToStart();
         ResetMaskToStart();
         request.OnComplete?.Invoke();
         ProcessNext();
@@ -389,6 +406,7 @@ public class CustomerSil : MonoBehaviour
     {
         ApplySilhouette(identifier);
         SetVisualsActive(true);
+        ResetCustomerToStart();
         ResetMaskToStart();
     }
 
@@ -426,6 +444,14 @@ public class CustomerSil : MonoBehaviour
         maskGameobject.position = GetStartPosition();
     }
 
+    void ResetCustomerToStart()
+    {
+        if (customerSprite == null || customerStart == null)
+            return;
+
+        customerSprite.transform.position = customerStart.position;
+    }
+
     Vector3 GetStartPosition()
     {
         return startPos != null ? startPos.position : maskGameobject.position;
@@ -442,11 +468,85 @@ public class CustomerSil : MonoBehaviour
         return maskGameobject.position + Vector3.down * 8f;
     }
 
+    Vector3 GetCustomerStartPosition()
+    {
+        if (customerStart != null)
+            return customerStart.position;
+
+        return customerSprite != null ? customerSprite.transform.position : Vector3.zero;
+    }
+
+    Vector3 GetCustomerEndPosition()
+    {
+        if (customerEnd != null)
+            return customerEnd.position;
+
+        return GetCustomerStartPosition();
+    }
+
     Tween MoveMask(Vector3 worldPosition)
     {
         return maskGameobject
             .DOMove(worldPosition, doorMoveDuration)
             .SetEase(Ease.InOutQuad);
+    }
+
+    Tween MoveDoorAndCustomer(Vector3 doorWorldPosition, Vector3 customerWorldPosition)
+    {
+        var sequence = DOTween.Sequence().Append(MoveMask(doorWorldPosition));
+
+        if (customerSprite != null)
+        {
+            sequence.Join(
+                customerSprite.transform
+                    .DOMove(customerWorldPosition, doorMoveDuration)
+                    .SetEase(Ease.InOutQuad));
+        }
+
+        return sequence;
+    }
+
+    IEnumerator MoveDoorAndCustomerCoroutine(Vector3 doorTarget, Vector3 customerTarget, float duration)
+    {
+        IEnumerator maskRoutine = MoveMaskCoroutine(doorTarget, duration);
+        IEnumerator customerRoutine = MoveCustomerCoroutine(customerTarget, duration);
+
+        bool maskDone = false;
+        bool customerDone = false;
+        while (!maskDone || !customerDone)
+        {
+            if (!maskDone)
+                maskDone = !maskRoutine.MoveNext();
+            if (!customerDone)
+                customerDone = !customerRoutine.MoveNext();
+
+            yield return null;
+        }
+    }
+
+    IEnumerator MoveCustomerCoroutine(Vector3 worldTarget, float duration)
+    {
+        if (customerSprite == null)
+            yield break;
+
+        Transform customer = customerSprite.transform;
+        if (duration <= 0f)
+        {
+            customer.position = worldTarget;
+            yield break;
+        }
+
+        Vector3 from = customer.position;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            customer.position = Vector3.Lerp(from, worldTarget, t);
+            yield return null;
+        }
+
+        customer.position = worldTarget;
     }
 
     enum SilMode

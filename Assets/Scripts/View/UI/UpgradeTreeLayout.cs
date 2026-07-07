@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public static class UpgradeTreeLayout
@@ -16,7 +17,9 @@ public static class UpgradeTreeLayout
         positions = new Dictionary<string, Vector2>();
         var directionFromParent = new Dictionary<string, Direction>();
 
-        var roots = CSVLoader.GetRoots();
+        var roots = CSVLoader.GetRoots()
+            .Where(info => info != null && info.IsVisible())
+            .ToList();
         if (roots.Count == 0)
             return true;
 
@@ -30,7 +33,9 @@ public static class UpgradeTreeLayout
         while (pending.Count > 0)
         {
             string parentId = pending.Dequeue();
-            var children = CSVLoader.GetChildren(parentId);
+            var children = CSVLoader.GetChildren(parentId)
+                .Where(info => info != null && info.IsVisible())
+                .ToList();
             if (children.Count == 0)
                 continue;
 

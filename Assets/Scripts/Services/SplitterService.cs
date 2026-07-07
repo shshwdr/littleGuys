@@ -107,8 +107,9 @@ public class SplitterService
         foreach (var worker in workers)
             worker.PositionLocked = false;
 
-        for (int i = 0; i < 2; i++)
-            SpawnSmallWorker(i);
+        int spawnCount = Mathf.Max(0, 2 + model.Config.splitCountBonus);
+        for (int i = 0; i < spawnCount; i++)
+            SpawnSmallWorker(i, spawnCount);
     }
 
     void StartSplit(ZoneData zone, System.Collections.Generic.List<WorkerData> workers)
@@ -173,7 +174,7 @@ public class SplitterService
         return model.Workers.Where(w => w.AssignedZone == ZoneType.Splitter).ToList();
     }
 
-    void SpawnSmallWorker(int slotIndex)
+    void SpawnSmallWorker(int slotIndex, int totalSlots)
     {
         var worker = new WorkerData
         {
@@ -183,7 +184,7 @@ public class SplitterService
             HasArrivedAtZone = false,
             IsSmall = true,
             RemainingGrowTime = model.Config.smallWorkerGrowTime,
-            Position = layout.GetOutputSlotPosition(ZoneType.Splitter, slotIndex, 2)
+            Position = layout.GetOutputSlotPosition(ZoneType.Splitter, slotIndex, totalSlots)
         };
 
         model.Workers.Add(worker);

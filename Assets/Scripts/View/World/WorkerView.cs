@@ -50,6 +50,9 @@ public class WorkerView : MonoBehaviour
         if (worker == null)
             return;
 
+        if (IsAttachedToCustomerHand())
+            return;
+
         if (worker.State == WorkerState.Sacrificing)
         {
             StopWalkBounce();
@@ -71,6 +74,15 @@ public class WorkerView : MonoBehaviour
         UpdateWorkingAnimation();
         bodyTransform.rotation = Quaternion.identity;
         RefreshScale();
+    }
+
+    bool IsAttachedToCustomerHand()
+    {
+        var hand = CustomerHand.Instance;
+        if (hand == null)
+            return false;
+
+        return transform.IsChildOf(hand.GrabPoint);
     }
 
     void UpdateMovement()

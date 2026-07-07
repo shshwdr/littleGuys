@@ -300,7 +300,9 @@ public class TransportService
             OrderId = zone.CurrentOrderId
         };
         FoodReadyForHandPickup?.Invoke(request);
-        BeginAwaitingHandPickup(zone, type, workers);
+        ResetAfterDelivery(zone);
+        UnlockWorkerPositions(workers);
+        MoveWorkersToZoneSlots(workers, type, dt);
     }
 
     void BeginAwaitingHandPickup(ZoneData zone, ZoneType type, List<WorkerData> workers)

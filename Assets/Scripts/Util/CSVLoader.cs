@@ -11,9 +11,15 @@ public class UpgradeInfo
     public string prev;
     public int cost;
     public int maxLevel;
-    public bool unlocked;
+    public int unlock = 1;
+    public int unlocked = 1;
     public int value;
     public string comment;
+
+    public bool IsVisible()
+    {
+        return unlock != 0 && unlocked != 0;
+    }
 
     public string GetDisplayText()
     {

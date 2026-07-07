@@ -491,7 +491,6 @@ public class GameBootstrap : MonoBehaviour
             if (customerHand == null)
             {
                 CompleteFoodDelivery(request);
-                transportService.CompleteAwaitingHandPickup(request.OrderId);
                 closeDoor?.Invoke();
                 return;
             }
@@ -583,8 +582,6 @@ public class GameBootstrap : MonoBehaviour
                 else if (fallbackFoodGo != null)
                     Destroy(fallbackFoodGo);
 
-                transportService.CompleteAwaitingHandPickup(request.OrderId);
-
                 customerHand.SetHandOpen(true);
                 CompleteFoodDelivery(request);
                 closeDoor?.Invoke();
@@ -599,6 +596,7 @@ public class GameBootstrap : MonoBehaviour
         var recipe = model.GetRecipe(request.RecipeId);
         int satiety = recipe != null ? recipe.Satiety : 0;
         customerService.AddSatiety(request.Customer, satiety);
+        model.Gold.Value += satiety + model.Config.dishPriceBonus;
         productionService.OnOrderDelivered(request.OrderId);
     }
 

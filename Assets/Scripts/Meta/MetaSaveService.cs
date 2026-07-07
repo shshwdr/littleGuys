@@ -61,6 +61,15 @@ public static class MetaSaveService
                 case "time":
                     config.levelTimeSeconds += info.value * level;
                     break;
+                case "customerTips":
+                    config.customerTipsBonus += info.value * level;
+                    break;
+                case "dishPrice":
+                    config.dishPriceBonus += info.value * level;
+                    break;
+                case "splitCount":
+                    config.splitCountBonus += info.value * level;
+                    break;
             }
         }
 
@@ -103,18 +112,7 @@ public static class MetaSaveService
 
     public static bool IsSpeedUpUnlocked(MetaSaveData meta)
     {
-        EnsureCsvLoaded();
-
-        foreach (var info in CSVLoader.GetAll())
-        {
-            if (info.effect != "speedUpButton")
-                continue;
-
-            if (meta.GetLevel(info.identifier) >= 1)
-                return true;
-        }
-
-        return false;
+        return true;
     }
 
     public static string GetHighestUnlockedRecipeId(GameModel model)

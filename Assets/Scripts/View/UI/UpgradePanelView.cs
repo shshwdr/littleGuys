@@ -122,6 +122,10 @@ public class UpgradePanelView : MonoBehaviour
         {
             if (string.IsNullOrEmpty(info.prev))
                 continue;
+            if (!info.IsVisible())
+                continue;
+            if (!nodeViews.ContainsKey(info.prev) || !nodeViews.ContainsKey(info.identifier))
+                continue;
 
             if (!positions.TryGetValue(info.prev, out var from)
                 || !positions.TryGetValue(info.identifier, out var to))
@@ -147,6 +151,8 @@ public class UpgradePanelView : MonoBehaviour
 
         var info = CSVLoader.Get(identifier);
         if (info == null)
+            return;
+        if (!info.IsVisible())
             return;
 
         var buttonGo = new GameObject("Upgrade_" + identifier);

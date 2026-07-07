@@ -241,11 +241,12 @@ public class CustomerSpawnService
             return;
 
         customer.IsServed = true;
-        model.Gold.Value += customer.ReceivedSatiety;
 
         var customerInfo = CSVLoader.GetCustomer(customer.CustomerTypeId);
         if (customerInfo != null && customerInfo.@base > 0)
             model.Gold.Value += customerInfo.@base;
+        if (model.Config.customerTipsBonus > 0)
+            model.Gold.Value += model.Config.customerTipsBonus;
 
         model.Customers.Remove(customer);
         model.ServedCustomerCount++;
