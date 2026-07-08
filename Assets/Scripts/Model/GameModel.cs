@@ -13,6 +13,7 @@ public class GameModel
     public ReactiveCollection<WorkerData> Workers = new ReactiveCollection<WorkerData>();
     public Dictionary<ZoneType, ZoneData> Zones = new Dictionary<ZoneType, ZoneData>();
     public Subject<Unit> WorkerAssignmentChanged = new Subject<Unit>();
+    public Subject<ZoneType> ZoneSourcePicked = new Subject<ZoneType>();
     public Subject<ZoneType> ZoneUnlocked = new Subject<ZoneType>();
     public Subject<string> RecipeUnlocked = new Subject<string>();
 

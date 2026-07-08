@@ -404,6 +404,7 @@ public class TransportService
         if (type == ZoneType.Chop && !zone.ConsumeWorkerAsInput)
         {
             visual = FoodVisual.Veg;
+            model.ZoneSourcePicked.OnNext(ZoneType.Ingredient);
             return true;
         }
 
@@ -414,6 +415,9 @@ public class TransportService
 
         if (!ZoneOutputStore.TryTake(upstreamZone, recipeId, stage, out var item, zone.CurrentOrderId))
             return false;
+
+        if (upstream == ZoneType.Ingredient)
+            model.ZoneSourcePicked.OnNext(ZoneType.Ingredient);
 
         visual = item.Visual;
         return true;

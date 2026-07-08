@@ -11,6 +11,8 @@ public class WorkerView : MonoBehaviour
     WorldLayout layout;
     GameConfigData config;
     Transform bodyTransform;
+    Minion minion;
+    bool lastMoving;
     Tween walkBounceTween;
     Tween punchTween;
     Tween sacrificeTween;
@@ -45,6 +47,7 @@ public class WorkerView : MonoBehaviour
                 Color.white,
                 Vector2.one);
         }
+        minion = bodyTransform.GetComponentInChildren<Minion>();
         transform.position = worker.Position;
         RefreshScale();
     }
@@ -89,8 +92,25 @@ public class WorkerView : MonoBehaviour
         eatenKnockbackStarted = false;
         UpdateMovement();
         UpdateWorkingAnimation();
+        UpdateMinionAnim();
         bodyTransform.rotation = Quaternion.identity;
         RefreshScale();
+    }
+
+    void UpdateMinionAnim()
+    {
+        if (minion == null)
+            return;
+
+        MinionAnimState state;
+        if (IsWorkerOperating())
+            state = MinionAnimState.Work;
+        else if (lastMoving)
+            state = MinionAnimState.Walk;
+        else
+            state = MinionAnimState.Idle;
+
+        minion.SetAnimState(state);
     }
 
     bool IsAttachedToCustomerHand()
@@ -106,6 +126,7 @@ public class WorkerView : MonoBehaviour
     {
         if (worker.PositionLocked || IsWorkerOperating())
         {
+            lastMoving = false;
             StopWalkBounce();
             return;
         }
@@ -117,7 +138,9 @@ public class WorkerView : MonoBehaviour
             new Vector3(target.x, target.y, 0f),
             speed);
 
-        UpdateWalkBounce(ShouldWalkBounce(target));
+        bool moving = ShouldWalkBounce(target);
+        lastMoving = moving;
+        UpdateWalkBounce(moving);
     }
 
     bool ShouldWalkBounce(Vector2 target)

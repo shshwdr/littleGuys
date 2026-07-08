@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 40086363220741138}
   - component: {fileID: 7866847643893948263}
+  - component: {fileID: 5495812696529083451}
   m_Layer: 0
   m_Name: Square
   m_TagString: Untagged
@@ -27,7 +28,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.3, y: 0.3, z: 1}
+  m_LocalScale: {x: 0.1, y: 0.1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7730511392489415778}
@@ -71,7 +72,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: -693390101
-  m_SortingLayer: 1
+  m_SortingLayer: 2
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: 97d06ad14303e7d458e6acacb4ff3a8f, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -84,6 +85,23 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!114 &5495812696529083451
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4328559507232132407}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 59bde4aa274a08940bb6b3714a2d1de7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetRenderer: {fileID: 7866847643893948263}
+  spriteList: []
+  frameTime: 0.3
+  loop: 1
+  playOnEnable: 1
 --- !u!1 &5244347373674787407
 GameObject:
   m_ObjectHideFlags: 0
@@ -130,3 +148,28 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spriteRenderer: {fileID: 7866847643893948263}
+  animPlayer: {fileID: 5495812696529083451}
+  idleSprites:
+  - {fileID: 21300000, guid: 5d950351c697e3540b98bf91f81d39e6, type: 3}
+  - {fileID: 21300000, guid: 2f814f3f9b1f9b347930eb84a1f118f7, type: 3}
+  - {fileID: 21300000, guid: 9248663576a34a44799559fafab3abf8, type: 3}
+  - {fileID: 21300000, guid: 19f81396c3cc5854e948ccec651a5e0f, type: 3}
+  - {fileID: 21300000, guid: 20a3dab73ac9b674689a1aeb3c1e6134, type: 3}
+  - {fileID: 21300000, guid: 2373ada0d00b1f44ca9e66d2a1d43017, type: 3}
+  - {fileID: 21300000, guid: bf28611f4404b9f478a4b736833b66a7, type: 3}
+  - {fileID: 21300000, guid: 57aa29595fb8c614583ac87a9d550bc5, type: 3}
+  walkSprites:
+  - {fileID: 21300000, guid: 6a4b124e951c9624fa08020e8014914c, type: 3}
+  - {fileID: 21300000, guid: 9c3025c876bb3434eae611792d714ced, type: 3}
+  - {fileID: 21300000, guid: 60232f2c382e4a4429bd16ed4404406d, type: 3}
+  - {fileID: 21300000, guid: 8e659327f023e574db1ba432735e315d, type: 3}
+  - {fileID: 21300000, guid: 0af14eeabd32d244eb5008eb0b8df8e4, type: 3}
+  - {fileID: 21300000, guid: 61a64690598b18641882bc316a62f3ab, type: 3}
+  workSprites:
+  - {fileID: 21300000, guid: d122fe6f7ddef93448ee6bd0679ae9c7, type: 3}
+  - {fileID: 21300000, guid: 5e55b29d569d0fe4499434f4e7c91dc3, type: 3}
+  - {fileID: 21300000, guid: a7a979582c1895a45945e48c4dbe8005, type: 3}
+  - {fileID: 21300000, guid: 20a933c38463f8f4ebdfb4818fbaac4c, type: 3}
+  - {fileID: 21300000, guid: 218f4b299a550574da62e756320a4a70, type: 3}
+  - {fileID: 21300000, guid: c13bf87aa95172848b1e34532b1800a1, type: 3}
+  - {fileID: 21300000, guid: e097bcad3d7d740448ce0c5a9408c55b, type: 3}

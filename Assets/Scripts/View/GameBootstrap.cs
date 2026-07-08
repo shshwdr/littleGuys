@@ -269,9 +269,12 @@ public class GameBootstrap : MonoBehaviour
 
         if (!model.GetZone(type).IsUnlocked)
         {
-            zonePrefab.HideWorldUi();
+            zonePrefab.gameObject.SetActive(false);
             return;
         }
+
+        if (!zonePrefab.gameObject.activeSelf)
+            zonePrefab.gameObject.SetActive(true);
 
         boundZonePrefabs.Add(type);
         zonePrefab.Setup(model, assignService, disposables);

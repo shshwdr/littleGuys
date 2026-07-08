@@ -82,6 +82,33 @@ public static class ResourceSpriteLoader
         }
     }
 
+    public static List<Sprite> GetSpriteList(string folder)
+    {
+        var result = new List<Sprite>();
+
+        var sprites = Resources.LoadAll<Sprite>(folder);
+        if (sprites != null && sprites.Length > 0)
+        {
+            result.AddRange(sprites.OrderBy(s => s.name));
+            return result;
+        }
+
+        var textures = Resources.LoadAll<Texture2D>(folder);
+        if (textures != null && textures.Length > 0)
+        {
+            foreach (var texture in textures.OrderBy(t => t.name))
+            {
+                result.Add(Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, texture.width, texture.height),
+                    new Vector2(0.5f, 0.5f),
+                    Mathf.Max(texture.width, texture.height)));
+            }
+        }
+
+        return result;
+    }
+
     static Sprite LoadSprite(ref Sprite cache, string resourcePath)
     {
         if (cache != null)

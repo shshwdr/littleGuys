@@ -1,4 +1,9 @@
 ﻿identifier,name,ingredients,machine
 水果,,,Ingredient
-果丁,,水果,Splitter
+果丁,,水果,Chop
 水果杯,,果丁,Plate
+果泥,,果丁,Cooker
+果汁,,果泥,Plate
+面片,,面团小人,Chop
+发泡奶油,,淡奶油,Cooker
+奶油手指面包,,面片|发泡奶油,Plate

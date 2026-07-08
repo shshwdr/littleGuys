@@ -16,7 +16,20 @@ public class ZonePrefab : MonoBehaviour
     [SerializeField] ZoneItemView itemView;
     [SerializeField] ZoneSourceView sourceView;
     [SerializeField] ZoneBufferPileView[] bufferPiles;
+
+    [Header("Work Animation")]
+    [Tooltip("Shown while this machine is being worked on. Hidden otherwise.")]
+    [SerializeField] GameObject workObject;
+    [Tooltip("Shown while this machine is idle (default visible state).")]
+    [SerializeField] GameObject notWorkObject;
+    [Tooltip("Loops while working. Auto-resolved from workObject if left empty.")]
+    [SerializeField] SpriteAnimPlayer workAnimPlayer;
+
     readonly List<Vector2> outputPositions = new List<Vector2>();
+
+    GameModel model;
+    bool workVisualInitialized;
+    bool isShowingWork;
 
     public ZoneType ZoneType => zoneType;
     public bool StartsUnlocked => startsUnlocked;
@@ -48,12 +61,132 @@ public class ZonePrefab : MonoBehaviour
 
     public void Setup(GameModel model, WorkerAssignService assignService, CompositeDisposable disposables)
     {
+        this.model = model;
+
         SetupWorldUi(model, assignService, disposables);
 
         EnsureItemView(model);
         EnsureSourceView(model);
         EnsureDefaultBufferPiles(model);
         BindBufferPiles(model);
+        SetupWorkAnimation(disposables);
+    }
+
+    void SetupWorkAnimation(CompositeDisposable disposables)
+    {
+        InitWorkVisual();
+
+        if (zoneType != ZoneType.Ingredient)
+            return;
+
+        // Ingredient has no work phase: it plays a single work animation each
+        // time a minion comes to pick something up, then reverts to notWork.
+        if (model == null)
+            return;
+
+        model.ZoneSourcePicked
+            .Where(picked => picked == zoneType)
+            .Subscribe(_ => PlayWorkOnce())
+            .AddTo(disposables);
+    }
+
+    void Update()
+    {
+        if (model == null)
+            return;
+
+        // Ingredient is event-driven (see SetupWorkAnimation), other zones
+        // simply reflect their working phase.
+        if (zoneType == ZoneType.Ingredient)
+            return;
+
+        if (workObject == null && notWorkObject == null)
+            return;
+
+        SetWorkVisual(IsMachineWorking());
+    }
+
+    bool IsMachineWorking()
+    {
+        if (model == null || !model.Zones.ContainsKey(zoneType))
+            return false;
+
+        return model.GetZone(zoneType).Phase == ZonePhase.Working;
+    }
+
+    void InitWorkVisual()
+    {
+        workVisualInitialized = true;
+        isShowingWork = false;
+
+        if (workObject != null)
+            workObject.SetActive(false);
+        if (notWorkObject != null)
+            notWorkObject.SetActive(true);
+    }
+
+    void SetWorkVisual(bool working)
+    {
+        if (workVisualInitialized && working == isShowingWork)
+            return;
+
+        workVisualInitialized = true;
+        isShowingWork = working;
+
+        if (notWorkObject != null)
+            notWorkObject.SetActive(!working);
+        if (workObject != null)
+            workObject.SetActive(working);
+
+        if (working)
+            ResolveWorkAnimPlayer()?.Play(true);
+    }
+
+    void PlayWorkOnce()
+    {
+        if (workObject == null)
+        {
+            // Nothing to animate; keep notWork visible.
+            return;
+        }
+
+        if (notWorkObject != null)
+            notWorkObject.SetActive(false);
+        workObject.SetActive(true);
+        isShowingWork = true;
+        workVisualInitialized = true;
+
+        var player = ResolveWorkAnimPlayer();
+        if (player != null)
+        {
+            player.Play(false, ShowNotWork);
+        }
+        else
+        {
+            ShowNotWork();
+        }
+    }
+
+    void ShowNotWork()
+    {
+        isShowingWork = false;
+        workVisualInitialized = true;
+
+        if (workObject != null)
+            workObject.SetActive(false);
+        if (notWorkObject != null)
+            notWorkObject.SetActive(true);
+    }
+
+    SpriteAnimPlayer ResolveWorkAnimPlayer()
+    {
+        if (workAnimPlayer != null)
+            return workAnimPlayer;
+
+        if (workObject != null)
+            workAnimPlayer = workObject.GetComponentInChildren<SpriteAnimPlayer>(true);
+
+        return workAnimPlayer;
     }
 
     public void HideWorldUi()
