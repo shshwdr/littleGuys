@@ -243,10 +243,15 @@ public class CustomerSpawnService
         customer.IsServed = true;
 
         var customerInfo = CSVLoader.GetCustomer(customer.CustomerTypeId);
-        if (customerInfo != null && customerInfo.@base > 0)
-            model.Gold.Value += customerInfo.@base;
-        if (model.Config.customerTipsBonus > 0)
-            model.Gold.Value += model.Config.customerTipsBonus;
+        int tips = (customerInfo != null ? customerInfo.@base : 0) + model.Config.customerTipsBonus;
+        if (tips > 0)
+        {
+            bool isOverfed = customer.ReceivedSatiety > customer.RequiredSatiety;
+            if (isOverfed)
+                tips *= 2;
+
+            model.Gold.Value += tips;
+        }
 
         model.Customers.Remove(customer);
         model.ServedCustomerCount++;
@@ -280,7 +285,7 @@ public class CustomerSpawnService
             return;
 
         customer.ReceivedSatiety += satiety;
-        if (customer.IsFullySatiated)
+        if (customer.ReceivedSatiety >= customer.RequiredSatiety)
             CustomerReadyToDepart?.Invoke(customer);
     }
 

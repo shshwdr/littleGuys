@@ -9,6 +9,7 @@ public class GameBootstrap : MonoBehaviour
     public static GameBootstrap Instance { get; private set; }
 
     const string CustomerViewPrefabPath = "prefab/customerView";
+    const string FoodPrefabPath = "prefab/food";
 
     [Header("View Roots")]
     [Tooltip("Gameplay content hidden while upgrade view is open.")]
@@ -123,6 +124,7 @@ public class GameBootstrap : MonoBehaviour
         customerService.CustomerReadyToDepart += OnCustomerReadyToDepart;
         customerEffectService.EatMinionPerformanceRequested += OnEatMinionPerformanceRequested;
         sacrificeService.SacrificeReadyForPickup += OnSacrificeReadyForPickup;
+        sacrificeService.SacrificeSatietyGranted += OnSacrificeSatietyGranted;
         transportService.FoodReadyForHandPickup += OnFoodReadyForHandPickup;
 
         splitterService.WorkerAdded += OnWorkerAdded;
@@ -595,13 +597,35 @@ public class GameBootstrap : MonoBehaviour
 
         var recipe = model.GetRecipe(request.RecipeId);
         int satiety = recipe != null ? recipe.Satiety : 0;
-        customerService.AddSatiety(request.Customer, satiety);
+        int bonusSatiety = 0;
+        if (model.Config.patienceFoodPercent > 0 && satiety > 0)
+            bonusSatiety = Mathf.CeilToInt(satiety * model.Config.patienceFoodPercent / 100f);
+
+        customerService.AddSatiety(request.Customer, satiety + bonusSatiety);
         model.Gold.Value += satiety + model.Config.dishPriceBonus;
         productionService.OnOrderDelivered(request.OrderId);
     }
 
+    void OnSacrificeSatietyGranted(CustomerData customer, int satiety)
+    {
+        customerService.AddSatiety(customer, satiety);
+    }
+
     GameObject CreateHandFoodVisual(FoodHandPickupRequest request)
     {
+        var foodPrefab = Resources.Load<GameObject>(FoodPrefabPath);
+        if (foodPrefab != null)
+        {
+            var prefabGo = Instantiate(foodPrefab);
+            prefabGo.name = "HandFood";
+            prefabGo.transform.position = layout.GetFoodOutputPosition();
+            var food = prefabGo.GetComponentInChildren<Food>();
+            if (food == null)
+                food = prefabGo.AddComponent<Food>();
+            food.SetVisual(request.Visual, request.Stage);
+            return prefabGo;
+        }
+
         var go = new GameObject("HandFood");
         float size = model.Config.foodSpriteSize * 1.15f;
         var renderer = ColorSpriteFactory.CreateSprite(

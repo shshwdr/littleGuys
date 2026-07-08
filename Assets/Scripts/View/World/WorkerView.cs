@@ -4,12 +4,13 @@ using UnityEngine;
 
 public class WorkerView : MonoBehaviour
 {
+    const string MinionPrefabPath = "prefab/minion";
+
     WorkerData worker;
     GameModel model;
     WorldLayout layout;
     GameConfigData config;
     Transform bodyTransform;
-    float baseScale = 0.2f;
     Tween walkBounceTween;
     Tween punchTween;
     Tween sacrificeTween;
@@ -35,14 +36,30 @@ public class WorkerView : MonoBehaviour
         innerGo.transform.SetParent(transform, false);
         bodyTransform = innerGo.transform;
 
-        ColorSpriteFactory.CreateSprite(
-            "Body",
-            bodyTransform,
-            ResourceSpriteLoader.GetMinion(),
-            Color.white,
-            Vector2.one);
+        if (!TryCreateMinionFromPrefab(bodyTransform))
+        {
+            ColorSpriteFactory.CreateSprite(
+                "Body",
+                bodyTransform,
+                ResourceSpriteLoader.GetMinion(),
+                Color.white,
+                Vector2.one);
+        }
         transform.position = worker.Position;
         RefreshScale();
+    }
+
+    bool TryCreateMinionFromPrefab(Transform parent)
+    {
+        var prefab = Resources.Load<GameObject>(MinionPrefabPath);
+        if (prefab == null)
+            return false;
+
+        var minionGo = Instantiate(prefab, parent, false);
+        minionGo.name = "Body";
+        if (minionGo.GetComponentInChildren<Minion>() == null)
+            minionGo.AddComponent<Minion>();
+        return true;
     }
 
     void Update()
@@ -240,9 +257,19 @@ public class WorkerView : MonoBehaviour
 
     Vector3 GetBaseScaleVector()
     {
-        float sizeScale = worker.IsSmall ? config.smallWorkerScale : 1f;
-        float s = baseScale * sizeScale;
-        return new Vector3(s, s, 1f);
+        if (config == null || worker == null)
+            return Vector3.one;
+
+        float smallScale = Mathf.Max(0.05f, config.smallWorkerScale);
+        if (worker.IsSmall || worker.RemainingGrowTime > 0f)
+        {
+            float growDuration = Mathf.Max(0.01f, config.smallWorkerGrowTime);
+            float t = 1f - Mathf.Clamp01(worker.RemainingGrowTime / growDuration);
+            float scale = Mathf.Lerp(smallScale, 1f, t);
+            return Vector3.one * scale;
+        }
+
+        return Vector3.one;
     }
 
     void RefreshScale()

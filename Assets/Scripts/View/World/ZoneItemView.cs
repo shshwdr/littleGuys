@@ -2,7 +2,10 @@ using UnityEngine;
 
 public class ZoneItemView : MonoBehaviour
 {
+    const string FoodPrefabPath = "prefab/food";
+
     [SerializeField] SpriteRenderer itemRenderer;
+    Food food;
 
     Transform itemTransform;
     Transform carryParent;
@@ -39,6 +42,8 @@ public class ZoneItemView : MonoBehaviour
 
         float size = config.foodSpriteSize * 1.15f;
         EnsureRenderer(config, size);
+        if (food == null)
+            food = GetComponentInChildren<Food>();
         itemTransform = itemRenderer.transform;
         itemRenderer.enabled = false;
     }
@@ -46,6 +51,9 @@ public class ZoneItemView : MonoBehaviour
     void EnsureRenderer(GameConfigData config, float size)
     {
         if (itemRenderer != null)
+            return;
+
+        if (TryCreateFoodFromPrefab())
             return;
 
         itemRenderer = GetComponentInChildren<SpriteRenderer>();
@@ -60,6 +68,24 @@ public class ZoneItemView : MonoBehaviour
             new Vector2(size, size));
     }
 
+    bool TryCreateFoodFromPrefab()
+    {
+        var prefab = Resources.Load<GameObject>(FoodPrefabPath);
+        if (prefab == null)
+            return false;
+
+        var foodGo = Instantiate(prefab, transform, false);
+        foodGo.name = "SharedItem";
+        food = foodGo.GetComponentInChildren<Food>();
+        if (food == null)
+            food = foodGo.AddComponent<Food>();
+
+        itemRenderer = food.GetRenderer();
+        if (itemRenderer == null)
+            itemRenderer = foodGo.GetComponentInChildren<SpriteRenderer>();
+        return itemRenderer != null;
+    }
+
     void Update()
     {
         if (!isSetup || model == null || itemRenderer == null || externallyControlled)
@@ -72,8 +98,13 @@ public class ZoneItemView : MonoBehaviour
             return;
 
         transform.position = new Vector3(zone.SharedItemPosition.x, zone.SharedItemPosition.y, -0.08f);
-        itemRenderer.sprite = ResourceSpriteLoader.GetFoodVisual(zone.SharedFoodVisual);
-        itemRenderer.color = FoodVisualColors.GetTint(zone.SharedFoodVisual, zone.SharedItemStage);
+        if (food != null)
+            food.SetVisual(zone.SharedFoodVisual, zone.SharedItemStage);
+        else
+        {
+            itemRenderer.sprite = ResourceSpriteLoader.GetFoodVisual(zone.SharedFoodVisual);
+            itemRenderer.color = FoodVisualColors.GetTint(zone.SharedFoodVisual, zone.SharedItemStage);
+        }
         itemTransform.rotation = Quaternion.Euler(0f, 0f, zone.WorkRotation);
     }
 }

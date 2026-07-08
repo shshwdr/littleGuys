@@ -10,6 +10,7 @@ public class CustomerSacrificeService
 
     public event Action<WorkerData> WorkerRemoved;
     public event Action<WorkerData> SacrificeReadyForPickup;
+    public event Action<CustomerData, int> SacrificeSatietyGranted;
 
     public CustomerSacrificeService(GameModel model, WorldLayout layout, WorkerAssignService assignService)
     {
@@ -157,6 +158,9 @@ public class CustomerSacrificeService
         {
             float restore = customer.MaxPatience * model.Config.customerSacrificePatienceRestore;
             customer.Patience.Value = Mathf.Min(customer.MaxPatience, customer.Patience.Value + restore);
+
+            if (model.Config.yummyMinionEnabled && model.Config.yummyMinionSatiety > 0)
+                SacrificeSatietyGranted?.Invoke(customer, model.Config.yummyMinionSatiety);
         }
 
         worker.SacrificeTarget = null;

@@ -90,7 +90,14 @@ public class ZoneWorkService
         foreach (var worker in workers)
             worker.PositionLocked = false;
 
-        ZoneOutputStore.Add(zone, zone.CurrentOrderId, zone.CurrentRecipeId, zone.StepOutput, zone.StepOutputVisual);
+        int outputCount = 1;
+        if (type == ZoneType.Chop && model.Config.doubleCutEnabled && Random.value < 0.5f)
+            outputCount = 2;
+        else if (type == ZoneType.Cook && model.Config.doubleCookEnabled && Random.value < 0.5f)
+            outputCount = 2;
+
+        for (int i = 0; i < outputCount; i++)
+            ZoneOutputStore.Add(zone, zone.CurrentOrderId, zone.CurrentRecipeId, zone.StepOutput, zone.StepOutputVisual);
         ClearSharedItem(zone);
         model.SetZonePhase(zone, ZonePhase.Idle);
         zone.StatusText.Value = "0%";

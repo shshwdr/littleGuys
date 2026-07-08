@@ -28,7 +28,7 @@ public static class UpgradeTreeLayout
         positions[rootId] = Vector2.zero;
         pending.Enqueue(rootId);
 
-        bool failed = false;
+        bool hadSkippedNodes = false;
 
         while (pending.Count > 0)
         {
@@ -44,9 +44,9 @@ public static class UpgradeTreeLayout
             if (children.Count > maxChildren)
             {
                 Debug.LogError(
-                    $"UpgradeTreeLayout: node '{parentId}' has {children.Count} children, max allowed is {maxChildren}. Remaining nodes were not placed.");
-                failed = true;
-                break;
+                    $"UpgradeTreeLayout: node '{parentId}' has {children.Count} children, max allowed is {maxChildren}. Extra children are skipped.");
+                children = children.Take(maxChildren).ToList();
+                hadSkippedNodes = true;
             }
 
             Direction[] placementDirections;
@@ -72,17 +72,14 @@ public static class UpgradeTreeLayout
                 if (!TryPlaceChild(child, parentPos, placementDirections, i, nodeSpacing, positions, directionFromParent, pending, out string overlapReason))
                 {
                     Debug.LogError(
-                        $"UpgradeTreeLayout: node '{child.identifier}' could not be placed without overlap. {overlapReason} Remaining nodes were not placed.");
-                    failed = true;
-                    break;
+                        $"UpgradeTreeLayout: node '{child.identifier}' could not be placed without overlap. {overlapReason} This node is skipped.");
+                    hadSkippedNodes = true;
+                    continue;
                 }
             }
-
-            if (failed)
-                break;
         }
 
-        return !failed;
+        return !hadSkippedNodes;
     }
 
     static bool TryPlaceChild(

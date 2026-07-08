@@ -107,7 +107,9 @@ public class SplitterService
         foreach (var worker in workers)
             worker.PositionLocked = false;
 
-        int spawnCount = Mathf.Max(0, 2 + model.Config.splitCountBonus);
+        int spawnCount = 2;
+        if (model.Config.doubleSplitEnabled && UnityEngine.Random.value < 0.5f)
+            spawnCount += 1;
         for (int i = 0; i < spawnCount; i++)
             SpawnSmallWorker(i, spawnCount);
     }

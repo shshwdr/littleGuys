@@ -1,5 +1,6 @@
 using UniRx;
 using UnityEngine;
+using System.Collections.Generic;
 
 public class ZonePrefab : MonoBehaviour
 {
@@ -14,6 +15,7 @@ public class ZonePrefab : MonoBehaviour
     [SerializeField] ZoneItemView itemView;
     [SerializeField] ZoneSourceView sourceView;
     [SerializeField] ZoneBufferPileView[] bufferPiles;
+    readonly List<Vector2> outputPositions = new List<Vector2>();
 
     public ZoneType ZoneType => zoneType;
     public bool StartsUnlocked => startsUnlocked;
@@ -25,6 +27,22 @@ public class ZonePrefab : MonoBehaviour
     public Vector2 GetInputPosition() => ToVector2(inputPoint != null ? inputPoint : workPoint != null ? workPoint : transform);
     public Vector2 GetWorkPosition() => ToVector2(workPoint != null ? workPoint : transform);
     public Vector2 GetOutputPosition() => ToVector2(outputPoint != null ? outputPoint : workPoint != null ? workPoint : transform);
+    public IReadOnlyList<Vector2> GetOutputPositions()
+    {
+        RefreshOutputPositions();
+        return outputPositions;
+    }
+
+    public Vector2 GetOutputPosition(int slotIndex)
+    {
+        RefreshOutputPositions();
+        if (outputPositions.Count == 0)
+            return GetOutputPosition();
+
+        int clamped = Mathf.Clamp(slotIndex, 0, outputPositions.Count - 1);
+        return outputPositions[clamped];
+    }
+
     public Vector2 GetWorkerRootPosition() => ToVector2(workerRoot != null ? workerRoot : transform);
 
     public void Setup(GameModel model, WorkerAssignService assignService, CompositeDisposable disposables)
@@ -65,15 +83,9 @@ public class ZonePrefab : MonoBehaviour
         if (sourceView == null)
             sourceView = GetComponentInChildren<ZoneSourceView>(true);
 
-        if (sourceView == null)
-        {
-            var go = new GameObject("SourcePile");
-            go.transform.SetParent(transform, false);
-            sourceView = go.AddComponent<ZoneSourceView>();
-        }
-
-        var displayPoint = outputPoint != null ? outputPoint : transform;
-        sourceView.SetupFromPoint(displayPoint, model.Config);
+        // Ingredient zone should not keep a permanent food visual.
+        if (sourceView != null)
+            sourceView.gameObject.SetActive(false);
     }
 
     void EnsureDefaultBufferPiles(GameModel model)
@@ -104,7 +116,7 @@ public class ZonePrefab : MonoBehaviour
         var go = new GameObject(name);
         go.transform.SetParent(transform, false);
         var pile = go.AddComponent<ZoneBufferPileView>();
-        pile.Setup(zoneType, model, model.Config, GetOutputPosition(), stage, visual);
+        pile.Setup(zoneType, model, model.Config, GetOutputPositions(), stage, visual);
         return pile;
     }
 
@@ -114,14 +126,28 @@ public class ZonePrefab : MonoBehaviour
             return;
 
         var outputPos = GetOutputPosition();
+        var outputSlots = GetOutputPositions();
         foreach (var pile in bufferPiles)
         {
             if (pile == null)
                 continue;
 
             pile.transform.position = new Vector3(outputPos.x, outputPos.y, pile.transform.position.z);
-            pile.BindExisting(zoneType, model, model.Config);
+            pile.BindExisting(zoneType, model, model.Config, outputSlots);
         }
+    }
+
+    void RefreshOutputPositions()
+    {
+        outputPositions.Clear();
+
+        var baseOutput = outputPoint != null ? outputPoint : workPoint != null ? workPoint : transform;
+        if (baseOutput == null)
+            return;
+
+        outputPositions.Add(baseOutput.position);
+        for (int i = 0; i < baseOutput.childCount; i++)
+            outputPositions.Add(baseOutput.GetChild(i).position);
     }
 
     static bool NeedsSharedItemView(ZoneType type)

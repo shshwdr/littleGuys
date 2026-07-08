@@ -111,6 +111,14 @@ public class WorldLayout
         return GetWorkItemPosition(zone);
     }
 
+    public Vector2 GetOutputPosition(ZoneType zone, int slotIndex)
+    {
+        if (zonePrefabs.TryGetValue(zone, out var prefab))
+            return prefab.GetOutputPosition(slotIndex);
+
+        return GetOutputPosition(zone);
+    }
+
     public Vector2 GetCarriedItemPosition(ZoneType zone) => GetInputPosition(zone);
 
     public Vector2 ElevateCarriedItem(Vector2 basePosition)

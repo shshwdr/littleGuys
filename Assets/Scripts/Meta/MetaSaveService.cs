@@ -67,8 +67,21 @@ public static class MetaSaveService
                 case "dishPrice":
                     config.dishPriceBonus += info.value * level;
                     break;
-                case "splitCount":
-                    config.splitCountBonus += info.value * level;
+                case "doubleCut":
+                    config.doubleCutEnabled = true;
+                    break;
+                case "doubleCook":
+                    config.doubleCookEnabled = true;
+                    break;
+                case "doubleSplit":
+                    config.doubleSplitEnabled = true;
+                    break;
+                case "yummyMinion":
+                    config.yummyMinionEnabled = true;
+                    config.yummyMinionSatiety += info.value * level;
+                    break;
+                case "patienceFood":
+                    config.patienceFoodPercent += info.value * level;
                     break;
             }
         }

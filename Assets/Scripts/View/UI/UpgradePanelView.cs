@@ -116,7 +116,16 @@ public class UpgradePanelView : MonoBehaviour
 
         var positions = BuildLayoutPositions();
         foreach (var pair in positions)
-            CreateUpgradeNode(pair.Key, pair.Value);
+        {
+            try
+            {
+                CreateUpgradeNode(pair.Key, pair.Value);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"UpgradePanelView: failed to draw upgrade '{pair.Key}'. {ex.Message}\n{ex.StackTrace}");
+            }
+        }
 
         foreach (var info in CSVLoader.GetAll())
         {
@@ -125,11 +134,19 @@ public class UpgradePanelView : MonoBehaviour
             if (!info.IsVisible())
                 continue;
             if (!nodeViews.ContainsKey(info.prev) || !nodeViews.ContainsKey(info.identifier))
+            {
+                Debug.LogError(
+                    $"UpgradePanelView: failed to draw connection '{info.prev}' -> '{info.identifier}' because at least one node was not drawn.");
                 continue;
+            }
 
             if (!positions.TryGetValue(info.prev, out var from)
                 || !positions.TryGetValue(info.identifier, out var to))
+            {
+                Debug.LogError(
+                    $"UpgradePanelView: failed to draw connection '{info.prev}' -> '{info.identifier}' because layout position is missing.");
                 continue;
+            }
 
             CreateConnectionLine(from, to);
         }
@@ -147,11 +164,17 @@ public class UpgradePanelView : MonoBehaviour
     void CreateUpgradeNode(string identifier, Vector2 position)
     {
         if (treeRoot == null)
+        {
+            Debug.LogError($"UpgradePanelView: failed to draw upgrade '{identifier}' because treeRoot is null.");
             return;
+        }
 
         var info = CSVLoader.Get(identifier);
         if (info == null)
+        {
+            Debug.LogError($"UpgradePanelView: failed to draw upgrade '{identifier}' because CSV data was not found.");
             return;
+        }
         if (!info.IsVisible())
             return;
 
