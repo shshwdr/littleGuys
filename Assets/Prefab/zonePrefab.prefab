@@ -792,19 +792,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5085759092483054618, guid: 99efd9ddfbc24c540ad6700a08fbcbd0, type: 3}
       propertyPath: m_fontColor.b
-      value: 0
+      value: 0.41960788
       objectReference: {fileID: 0}
     - target: {fileID: 5085759092483054618, guid: 99efd9ddfbc24c540ad6700a08fbcbd0, type: 3}
       propertyPath: m_fontColor.g
-      value: 0
+      value: 0.61960787
       objectReference: {fileID: 0}
     - target: {fileID: 5085759092483054618, guid: 99efd9ddfbc24c540ad6700a08fbcbd0, type: 3}
       propertyPath: m_fontColor.r
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5085759092483054618, guid: 99efd9ddfbc24c540ad6700a08fbcbd0, type: 3}
       propertyPath: m_fontColor32.rgba
-      value: 4278190080
+      value: 4285243135
       objectReference: {fileID: 0}
     - target: {fileID: 5085759092483054618, guid: 99efd9ddfbc24c540ad6700a08fbcbd0, type: 3}
       propertyPath: m_VerticalAlignment
@@ -933,19 +933,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5085759092483054618, guid: 99efd9ddfbc24c540ad6700a08fbcbd0, type: 3}
       propertyPath: m_fontColor.b
-      value: 0
+      value: 0.41960788
       objectReference: {fileID: 0}
     - target: {fileID: 5085759092483054618, guid: 99efd9ddfbc24c540ad6700a08fbcbd0, type: 3}
       propertyPath: m_fontColor.g
-      value: 0
+      value: 0.61960787
       objectReference: {fileID: 0}
     - target: {fileID: 5085759092483054618, guid: 99efd9ddfbc24c540ad6700a08fbcbd0, type: 3}
       propertyPath: m_fontColor.r
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5085759092483054618, guid: 99efd9ddfbc24c540ad6700a08fbcbd0, type: 3}
       propertyPath: m_fontColor32.rgba
-      value: 4278190080
+      value: 4285243135
       objectReference: {fileID: 0}
     - target: {fileID: 5085759092483054618, guid: 99efd9ddfbc24c540ad6700a08fbcbd0, type: 3}
       propertyPath: m_VerticalAlignment

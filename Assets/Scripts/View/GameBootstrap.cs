@@ -9,7 +9,6 @@ public class GameBootstrap : MonoBehaviour
     public static GameBootstrap Instance { get; private set; }
 
     const string CustomerViewPrefabPath = "prefab/customerView";
-    const string FoodPrefabPath = "prefab/food";
 
     [Header("View Roots")]
     [Tooltip("Gameplay content hidden while upgrade view is open.")]
@@ -623,29 +622,10 @@ public class GameBootstrap : MonoBehaviour
 
     GameObject CreateHandFoodVisual(FoodHandPickupRequest request)
     {
-        var foodPrefab = Resources.Load<GameObject>(FoodPrefabPath);
-        if (foodPrefab != null)
-        {
-            var prefabGo = Instantiate(foodPrefab);
-            prefabGo.name = "HandFood";
-            prefabGo.transform.position = layout.GetFoodOutputPosition();
-            var food = prefabGo.GetComponentInChildren<Food>();
-            if (food == null)
-                food = prefabGo.AddComponent<Food>();
-            food.SetVisual(request.Visual, request.Stage);
-            return prefabGo;
-        }
-
-        var go = new GameObject("HandFood");
-        float size = model.Config.foodSpriteSize * 1.15f;
-        var renderer = ColorSpriteFactory.CreateSprite(
-            "Food",
-            go.transform,
-            ResourceSpriteLoader.GetFoodVisual(request.Visual),
-            FoodVisualColors.GetTint(request.Visual, request.Stage),
-            new Vector2(size, size));
-        renderer.transform.position = layout.GetFoodOutputPosition();
-        return go;
+        var food = Food.Spawn(null, "HandFood");
+        food.transform.position = layout.GetFoodOutputPosition();
+        food.SetVisual(request.Visual, request.Stage);
+        return food.gameObject;
     }
 
     void OnCustomerReadyToDepart(CustomerData customer)

@@ -8,7 +8,7 @@ public class ZoneBufferPileView : MonoBehaviour
     [SerializeField] FoodStage pileStage;
     [SerializeField] FoodVisual pileVisual = FoodVisual.None;
 
-    readonly List<SpriteRenderer> pileRenderers = new List<SpriteRenderer>();
+    readonly List<Food> pileFoods = new List<Food>();
     readonly List<Vector2> outputSlots = new List<Vector2>();
     GameModel model;
     bool isSetup;
@@ -21,10 +21,9 @@ public class ZoneBufferPileView : MonoBehaviour
         pileVisual = visual;
         isSetup = true;
 
-        float size = config.foodSpriteSize * 1.15f;
         SetOutputSlots(positions);
-        EnsureRenderers(config, visual, size, 1);
-        SetRendererVisibleCount(0);
+        EnsureFoods(1);
+        SetVisibleCount(0);
     }
 
     public void BindExisting(ZoneType upstreamZone, GameModel gameModel, GameConfigData config, IReadOnlyList<Vector2> positions)
@@ -34,8 +33,7 @@ public class ZoneBufferPileView : MonoBehaviour
         isSetup = true;
         SetOutputSlots(positions);
 
-        float size = config.foodSpriteSize * 1.15f;
-        EnsureRenderers(config, pileVisual, size, 1);
+        EnsureFoods(1);
     }
 
     void SetOutputSlots(IReadOnlyList<Vector2> positions)
@@ -51,17 +49,12 @@ public class ZoneBufferPileView : MonoBehaviour
             outputSlots.Add(transform.position);
     }
 
-    void EnsureRenderers(GameConfigData config, FoodVisual visual, float size, int requiredCount)
+    void EnsureFoods(int requiredCount)
     {
-        while (pileRenderers.Count < requiredCount)
+        while (pileFoods.Count < requiredCount)
         {
-            var renderer = ColorSpriteFactory.CreateSprite(
-                "BufferPile_" + pileRenderers.Count,
-                transform,
-                ResourceSpriteLoader.GetFoodVisual(visual),
-                Color.white,
-                new Vector2(size, size));
-            pileRenderers.Add(renderer);
+            var food = Food.Spawn(transform, "BufferPile_" + pileFoods.Count);
+            pileFoods.Add(food);
         }
     }
 
@@ -78,31 +71,38 @@ public class ZoneBufferPileView : MonoBehaviour
         int visibleCount = Mathf.Min(items.Count, outputSlots.Count);
         if (visibleCount <= 0)
         {
-            SetRendererVisibleCount(0);
+            SetVisibleCount(0);
             return;
         }
 
-        float size = model.Config.foodSpriteSize * 1.15f;
-        EnsureRenderers(model.Config, items[0].Visual, size, visibleCount);
-        SetRendererVisibleCount(visibleCount);
+        EnsureFoods(visibleCount);
+        SetVisibleCount(visibleCount);
 
         for (int i = 0; i < visibleCount; i++)
         {
             var item = items[i];
-            var renderer = pileRenderers[i];
-            renderer.sprite = ResourceSpriteLoader.GetFoodVisual(item.Visual);
-            renderer.color = item.Occupied ? new Color(1f, 1f, 1f, 0.55f) : Color.white;
+            var food = pileFoods[i];
+            food.SetVisual(item.Visual, item.Stage);
+
+            var renderer = food.GetRenderer();
+            if (renderer != null)
+            {
+                var color = renderer.color;
+                color.a = item.Occupied ? 0.55f : 1f;
+                renderer.color = color;
+            }
+
             var pos = outputSlots[i];
-            renderer.transform.position = new Vector3(pos.x, pos.y, renderer.transform.position.z);
+            food.transform.position = new Vector3(pos.x, pos.y, food.transform.position.z);
         }
     }
 
-    void SetRendererVisibleCount(int count)
+    void SetVisibleCount(int count)
     {
-        for (int i = 0; i < pileRenderers.Count; i++)
+        for (int i = 0; i < pileFoods.Count; i++)
         {
-            if (pileRenderers[i] != null)
-                pileRenderers[i].enabled = i < count;
+            if (pileFoods[i] != null)
+                pileFoods[i].gameObject.SetActive(i < count);
         }
     }
 }

@@ -2,11 +2,44 @@ using UnityEngine;
 
 public class Food : MonoBehaviour
 {
+    const string FoodPrefabPath = "prefab/food";
+
     [SerializeField] SpriteRenderer spriteRenderer;
 
     void Awake()
     {
         EnsureRenderer();
+    }
+
+    /// <summary>
+    /// Spawns a food item from the shared food prefab (prefab/food) and returns
+    /// its Food component. Falls back to a bare SpriteRenderer object only if the
+    /// prefab is missing. Use this for every intermediate food visual.
+    /// </summary>
+    public static Food Spawn(Transform parent, string name = "Food")
+    {
+        var prefab = Resources.Load<GameObject>(FoodPrefabPath);
+
+        GameObject go;
+        if (prefab != null)
+        {
+            go = Instantiate(prefab, parent, false);
+        }
+        else
+        {
+            go = new GameObject(name);
+            if (parent != null)
+                go.transform.SetParent(parent, false);
+            go.AddComponent<SpriteRenderer>();
+        }
+
+        go.name = name;
+
+        var food = go.GetComponentInChildren<Food>();
+        if (food == null)
+            food = go.AddComponent<Food>();
+
+        return food;
     }
 
     public void SetVisual(FoodVisual visual, FoodStage stage)

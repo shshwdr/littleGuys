@@ -2,8 +2,6 @@ using UnityEngine;
 
 public class ZoneItemView : MonoBehaviour
 {
-    const string FoodPrefabPath = "prefab/food";
-
     [SerializeField] SpriteRenderer itemRenderer;
     Food food;
 
@@ -40,50 +38,22 @@ public class ZoneItemView : MonoBehaviour
         isSetup = true;
         carryParent = transform.parent;
 
-        float size = config.foodSpriteSize * 1.15f;
-        EnsureRenderer(config, size);
+        EnsureRenderer();
         if (food == null)
             food = GetComponentInChildren<Food>();
         itemTransform = itemRenderer.transform;
         itemRenderer.enabled = false;
     }
 
-    void EnsureRenderer(GameConfigData config, float size)
+    void EnsureRenderer()
     {
         if (itemRenderer != null)
             return;
 
-        if (TryCreateFoodFromPrefab())
-            return;
-
-        itemRenderer = GetComponentInChildren<SpriteRenderer>();
-        if (itemRenderer != null)
-            return;
-
-        itemRenderer = ColorSpriteFactory.CreateSprite(
-            "SharedItem",
-            transform,
-            ResourceSpriteLoader.GetFood(),
-            Color.white,
-            new Vector2(size, size));
-    }
-
-    bool TryCreateFoodFromPrefab()
-    {
-        var prefab = Resources.Load<GameObject>(FoodPrefabPath);
-        if (prefab == null)
-            return false;
-
-        var foodGo = Instantiate(prefab, transform, false);
-        foodGo.name = "SharedItem";
-        food = foodGo.GetComponentInChildren<Food>();
-        if (food == null)
-            food = foodGo.AddComponent<Food>();
-
+        food = Food.Spawn(transform, "SharedItem");
         itemRenderer = food.GetRenderer();
         if (itemRenderer == null)
-            itemRenderer = foodGo.GetComponentInChildren<SpriteRenderer>();
-        return itemRenderer != null;
+            itemRenderer = food.GetComponentInChildren<SpriteRenderer>();
     }
 
     void Update()
@@ -92,7 +62,11 @@ public class ZoneItemView : MonoBehaviour
             return;
 
         var zone = model.GetZone(zoneType);
-        bool show = zone.HasSharedItem && zone.SharedItemStage != FoodStage.None;
+        // While the machine is working the ingredient is "inside" the machine:
+        // hide it until the step completes and the output pile shows the result.
+        bool show = zone.HasSharedItem
+            && zone.SharedItemStage != FoodStage.None
+            && zone.Phase != ZonePhase.Working;
         itemRenderer.enabled = show;
         if (!show)
             return;
