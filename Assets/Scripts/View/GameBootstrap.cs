@@ -188,6 +188,10 @@ public class GameBootstrap : MonoBehaviour
             .Where(_ => Input.GetKeyDown(KeyCode.V))
             .Subscribe(_ => hudView?.ToggleSpeedPanelCheat())
             .AddTo(disposables);
+
+        Observable.EveryUpdate()
+            .Subscribe(_ => ClickDebugLogger.LogClickIfAny())
+            .AddTo(disposables);
     }
 
     GameModel CreateModel(GameConfigData config, MetaSaveData metaSave)
@@ -264,7 +268,10 @@ public class GameBootstrap : MonoBehaviour
             return;
 
         if (!model.GetZone(type).IsUnlocked)
+        {
+            zonePrefab.HideWorldUi();
             return;
+        }
 
         boundZonePrefabs.Add(type);
         zonePrefab.Setup(model, assignService, disposables);

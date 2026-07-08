@@ -11,6 +11,7 @@ public class ZonePrefab : MonoBehaviour
     [SerializeField] Transform workerRoot;
     [SerializeField] string displayLabel;
     [SerializeField] bool startsUnlocked = true;
+    [SerializeField] bool showWorldUi = true;
     [SerializeField] ZoneWorldUIView worldUi;
     [SerializeField] ZoneItemView itemView;
     [SerializeField] ZoneSourceView sourceView;
@@ -47,16 +48,51 @@ public class ZonePrefab : MonoBehaviour
 
     public void Setup(GameModel model, WorkerAssignService assignService, CompositeDisposable disposables)
     {
-        if (worldUi != null)
-        {
-            worldUi.Setup(zoneType, model, assignService, RootPosition, DisplayLabel);
-            worldUi.Bind(disposables);
-        }
+        SetupWorldUi(model, assignService, disposables);
 
         EnsureItemView(model);
         EnsureSourceView(model);
         EnsureDefaultBufferPiles(model);
         BindBufferPiles(model);
+    }
+
+    public void HideWorldUi()
+    {
+        if (worldUi == null)
+            worldUi = GetComponentInChildren<ZoneWorldUIView>(true);
+
+        if (worldUi != null)
+            worldUi.gameObject.SetActive(false);
+    }
+
+    void SetupWorldUi(GameModel model, WorkerAssignService assignService, CompositeDisposable disposables)
+    {
+        if (worldUi == null)
+            worldUi = GetComponentInChildren<ZoneWorldUIView>(true);
+
+        if (worldUi == null)
+            return;
+
+        bool shouldShow = ShouldShowWorldUi();
+        worldUi.gameObject.SetActive(shouldShow);
+        if (!shouldShow)
+            return;
+
+        worldUi.Setup(zoneType, model, assignService, RootPosition, DisplayLabel);
+        worldUi.Bind(disposables);
+    }
+
+    void Reset()
+    {
+        showWorldUi = zoneType != ZoneType.Ingredient;
+    }
+
+    bool ShouldShowWorldUi()
+    {
+        if (!showWorldUi)
+            return false;
+
+        return zoneType != ZoneType.Ingredient;
     }
 
     void EnsureItemView(GameModel model)
