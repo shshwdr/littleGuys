@@ -64,8 +64,9 @@ public class ZoneBufferPileView : MonoBehaviour
             return;
 
         var zone = model.GetZone(sourceZone);
+        // pileStage == None 表示展示该区所有产出（identifier 模式）；否则按阶段过滤。
         var items = zone.OutputItems.Where(output =>
-            output.Stage == pileStage &&
+            (pileStage == FoodStage.None || output.Stage == pileStage) &&
             (pileVisual == FoodVisual.None || output.Visual == pileVisual)).ToList();
 
         int visibleCount = Mathf.Min(items.Count, outputSlots.Count);
@@ -82,7 +83,7 @@ public class ZoneBufferPileView : MonoBehaviour
         {
             var item = items[i];
             var food = pileFoods[i];
-            food.SetVisual(item.Visual, item.Stage);
+            food.SetVisual(item.Identifier, item.Visual, item.Stage);
 
             var renderer = food.GetRenderer();
             if (renderer != null)

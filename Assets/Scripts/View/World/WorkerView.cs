@@ -13,11 +13,8 @@ public class WorkerView : MonoBehaviour
     Transform bodyTransform;
     Minion minion;
     bool lastMoving;
-    Tween walkBounceTween;
-    Tween punchTween;
     Tween sacrificeTween;
     Tween eatenTween;
-    bool isWorkingAnim;
     bool sacrificeAnimStarted;
     bool eatenAnimStarted;
     bool eatenKnockbackStarted;
@@ -75,23 +72,17 @@ public class WorkerView : MonoBehaviour
 
         if (worker.State == WorkerState.Sacrificing)
         {
-            StopWalkBounce();
             transform.position = new Vector3(worker.Position.x, worker.Position.y, 0f);
             return;
         }
 
         if (worker.State == WorkerState.BeingEaten)
-        {
-            if (!eatenKnockbackStarted)
-                StopWalkBounce();
             return;
-        }
 
         sacrificeAnimStarted = false;
         eatenAnimStarted = false;
         eatenKnockbackStarted = false;
         UpdateMovement();
-        UpdateWorkingAnimation();
         UpdateMinionAnim();
         bodyTransform.rotation = Quaternion.identity;
         RefreshScale();
@@ -127,7 +118,6 @@ public class WorkerView : MonoBehaviour
         if (worker.PositionLocked || IsWorkerOperating())
         {
             lastMoving = false;
-            StopWalkBounce();
             return;
         }
 
@@ -138,12 +128,10 @@ public class WorkerView : MonoBehaviour
             new Vector3(target.x, target.y, 0f),
             speed);
 
-        bool moving = ShouldWalkBounce(target);
-        lastMoving = moving;
-        UpdateWalkBounce(moving);
+        lastMoving = IsMoving(target);
     }
 
-    bool ShouldWalkBounce(Vector2 target)
+    bool IsMoving(Vector2 target)
     {
         if (worker.State == WorkerState.WalkingToZone)
             return true;
@@ -154,7 +142,8 @@ public class WorkerView : MonoBehaviour
         if (worker.AssignedZone != ZoneType.Idle)
         {
             var zone = model.GetZone(worker.AssignedZone);
-            if (zone.Phase == ZonePhase.GoingToSource
+            if (zone.Phase == ZonePhase.AwaitingWorkers
+                || zone.Phase == ZonePhase.GoingToSource
                 || zone.Phase == ZonePhase.Returning
                 || zone.Phase == ZonePhase.Delivering)
                 return true;
@@ -171,61 +160,12 @@ public class WorkerView : MonoBehaviour
         return worker.Position;
     }
 
-    void UpdateWalkBounce(bool moving)
-    {
-        if (!moving)
-        {
-            StopWalkBounce();
-            return;
-        }
-
-        if (walkBounceTween != null && walkBounceTween.IsActive())
-            return;
-
-        bodyTransform.localPosition = Vector3.zero;
-        walkBounceTween = bodyTransform
-            .DOLocalMoveY(0.08f, 0.22f)
-            .SetLoops(-1, LoopType.Yoyo)
-            .SetEase(Ease.InOutSine);
-    }
-
-    void StopWalkBounce()
-    {
-        walkBounceTween?.Kill();
-        walkBounceTween = null;
-        bodyTransform.localPosition = Vector3.zero;
-    }
-
-    void UpdateWorkingAnimation()
-    {
-        bool shouldWork = IsWorkerOperating();
-        if (shouldWork == isWorkingAnim)
-            return;
-
-        isWorkingAnim = shouldWork;
-        punchTween?.Kill();
-
-        if (!shouldWork)
-        {
-            bodyTransform.localScale = GetBaseScaleVector();
-            return;
-        }
-
-        StopWalkBounce();
-        bodyTransform.localScale = GetBaseScaleVector();
-        punchTween = bodyTransform
-            .DOPunchScale(Vector3.one * 0.12f, 0.45f, 2, 0.4f)
-            .SetLoops(-1, LoopType.Restart);
-    }
-
     void UpdateSacrificeAnimation()
     {
         if (sacrificeAnimStarted)
             return;
 
         sacrificeAnimStarted = true;
-        StopWalkBounce();
-        punchTween?.Kill();
 
         Vector2 customerPos = worker.Position;
         if (worker.SacrificeTarget != null)
@@ -254,8 +194,6 @@ public class WorkerView : MonoBehaviour
 
         eatenKnockbackStarted = true;
         eatenAnimStarted = true;
-        StopWalkBounce();
-        punchTween?.Kill();
 
         var target = new Vector3(customerPos.x, customerPos.y + 0.3f, 0f);
         eatenTween = DOTween.Sequence()
@@ -297,7 +235,7 @@ public class WorkerView : MonoBehaviour
 
     void RefreshScale()
     {
-        if (isWorkingAnim || worker.State == WorkerState.Sacrificing || worker.State == WorkerState.BeingEaten)
+        if (worker.State == WorkerState.Sacrificing || worker.State == WorkerState.BeingEaten)
             return;
 
         bodyTransform.localScale = GetBaseScaleVector();
@@ -305,8 +243,6 @@ public class WorkerView : MonoBehaviour
 
     void OnDestroy()
     {
-        walkBounceTween?.Kill();
-        punchTween?.Kill();
         sacrificeTween?.Kill();
         eatenTween?.Kill();
     }

@@ -50,21 +50,14 @@ public class ProductionService
             return false;
         }
 
-        if (!IsStepReady(zoneType, activeId, step))
-        {
-            ClearZoneTask(zone);
-            return false;
-        }
-
-        int orderId = ResolveOrderId(zoneType, activeId, step);
-        if (orderId < 0)
+        if (!IsStepReady(step))
         {
             ClearZoneTask(zone);
             return false;
         }
 
         ApplyStepToZone(zone, step, activeId);
-        zone.CurrentOrderId = orderId;
+        zone.CurrentOrderId = model.NextOrderId++;
         return true;
     }
 
@@ -78,40 +71,26 @@ public class ProductionService
         if (step == null)
             return false;
 
-        if (step.SpawnInputInZone || (zoneType == ZoneType.Chop && !step.ConsumeWorkerAsInput))
-            return true;
-
-        var upstream = GetUpstreamZone(zoneType, activeId);
-        var upstreamZone = model.GetZone(upstream);
-        return ZoneOutputStore.Has(upstreamZone, step.Input, activeId, zone.CurrentOrderId);
+        return IsStepReady(step);
     }
 
-    bool IsStepReady(ZoneType zoneType, string recipeId, RecipeStep step)
+    // 所有需要外出取的原料都必须同时就绪，才允许开始（多原料：需集齐才制作）。
+    bool IsStepReady(RecipeStep step)
     {
         if (step.SpawnInputInZone)
             return true;
 
-        if (zoneType == ZoneType.Chop && !step.ConsumeWorkerAsInput)
-            return true;
-
-        var upstream = GetUpstreamZone(zoneType, recipeId);
-        var upstreamZone = model.GetZone(upstream);
-        return ZoneOutputStore.Has(upstreamZone, step.Input, recipeId);
-    }
-
-    int ResolveOrderId(ZoneType zoneType, string recipeId, RecipeStep step)
-    {
-        if (step.SpawnInputInZone || (zoneType == ZoneType.Chop && !step.ConsumeWorkerAsInput))
+        foreach (var input in step.FetchInputs)
         {
-            int orderId = model.NextOrderId++;
-            model.ProductionOrders.Add(new ProductionOrder { OrderId = orderId, RecipeId = recipeId });
-            return orderId;
+            if (input.FromIngredientSource)
+                continue;
+
+            var srcZone = model.GetZone(input.Source);
+            if (!ZoneOutputStore.Has(srcZone, input.Id, input.Stage))
+                return false;
         }
 
-        var upstream = GetUpstreamZone(zoneType, recipeId);
-        var upstreamZone = model.GetZone(upstream);
-        var item = ZoneOutputStore.PeekAvailable(upstreamZone, recipeId, step.Input);
-        return item != null ? item.OrderId : -1;
+        return true;
     }
 
     public bool CanFetchForActiveTask(ZoneData zone, ZoneType zoneType)
@@ -123,19 +102,7 @@ public class ProductionService
         if (step == null)
             return false;
 
-        if (step.SpawnInputInZone)
-            return true;
-
-        if (zoneType == ZoneType.Chop && !zone.ConsumeWorkerAsInput)
-            return true;
-
-        var upstream = GetUpstreamZone(zoneType, zone.CurrentRecipeId);
-        var upstreamZone = model.GetZone(upstream);
-        return ZoneOutputStore.Has(
-            upstreamZone,
-            step.Input,
-            zone.CurrentRecipeId,
-            zone.CurrentOrderId);
+        return IsStepReady(step);
     }
 
     public void CompleteZoneStep(ZoneData zone, ZoneType zoneType)
@@ -156,7 +123,7 @@ public class ProductionService
     public RecipeStep GetStepForZone(string recipeId, ZoneType zone)
     {
         var recipe = model.GetRecipe(recipeId);
-        if (recipe == null)
+        if (recipe == null || recipe.Steps == null)
             return null;
 
         return recipe.Steps.FirstOrDefault(step => step.Zone == zone);
@@ -168,6 +135,7 @@ public class ProductionService
         zone.CurrentRecipeId = recipeId;
         zone.StepInput = step.Input;
         zone.StepOutput = step.Output;
+        zone.StepOutputId = step.OutputId;
         zone.BaseDuration = step.BaseDuration;
         zone.SoloWorkerCount = step.SoloWorkerCount;
         zone.SpawnInputInZone = step.SpawnInputInZone;
@@ -175,6 +143,11 @@ public class ProductionService
         zone.StepInputVisual = step.InputVisual;
         zone.StepOutputVisual = step.OutputVisual;
         zone.SharedFoodVisual = step.InputVisual;
+
+        zone.StepInputs = step.FetchInputs.ToList();
+        zone.FetchInputIndex = 0;
+        zone.CollectedInputs.Clear();
+        zone.SharedItemId = "";
     }
 
     public void ClearZoneTask(ZoneData zone)
@@ -184,6 +157,7 @@ public class ProductionService
         zone.CurrentOrderId = 0;
         zone.StepInput = FoodStage.None;
         zone.StepOutput = FoodStage.None;
+        zone.StepOutputId = "";
         zone.BaseDuration = 0f;
         zone.SoloWorkerCount = 0;
         zone.SpawnInputInZone = false;
@@ -191,26 +165,24 @@ public class ProductionService
         zone.StepInputVisual = FoodVisual.None;
         zone.StepOutputVisual = FoodVisual.None;
         zone.SharedFoodVisual = FoodVisual.None;
+        zone.SharedItemId = "";
         zone.WorkRotation = 0f;
+        zone.StepInputs.Clear();
+        zone.FetchInputIndex = 0;
+        zone.CollectedInputs.Clear();
     }
 
-    public ZoneType GetUpstreamZone(ZoneType zoneType, string recipeId)
+    // 当前正在外出取的原料（多原料时按顺序逐个取）。
+    public StepInput CurrentFetchInput(ZoneData zone)
     {
-        var recipe = model.GetRecipe(recipeId);
-        if (recipe == null)
-            return zoneType;
+        if (zone.FetchInputIndex < 0 || zone.FetchInputIndex >= zone.StepInputs.Count)
+            return null;
 
-        for (int i = 0; i < recipe.Steps.Length; i++)
-        {
-            if (recipe.Steps[i].Zone != zoneType)
-                continue;
+        return zone.StepInputs[zone.FetchInputIndex];
+    }
 
-            if (i == 0)
-                return ZoneType.Ingredient;
-
-            return recipe.Steps[i - 1].Zone;
-        }
-
-        return zoneType;
+    public bool AllInputsCollected(ZoneData zone)
+    {
+        return zone.FetchInputIndex >= zone.StepInputs.Count;
     }
 }

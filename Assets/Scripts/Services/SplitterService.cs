@@ -62,7 +62,7 @@ public class SplitterService
     void TickWorking(ZoneData zone, System.Collections.Generic.List<WorkerData> workers, float dt)
     {
         var arrivedWorkers = workers.Where(w => w.HasArrivedAtZone).ToList();
-        if (arrivedWorkers.Count == 0)
+        if (arrivedWorkers.Count < workers.Count)
         {
             zone.StatusText.Value = "Waiting";
             zone.WorkSpeed.Value = 0f;
@@ -89,7 +89,7 @@ public class SplitterService
         zone.TaskProgress.Value += (operatorCount / zone.BaseDuration) * dt;
         zone.StatusText.Value = $"{Mathf.RoundToInt(zone.TaskProgress.Value * 100f)}%";
 
-        Vector2 center = layout.GetInputPosition(ZoneType.Splitter);
+        Vector2 center = layout.GetWorkItemPosition(ZoneType.Splitter);
         zone.SharedItemPosition = center;
         zone.HasSharedItem = true;
         zone.SharedFoodVisual = FoodVisual.Minion;
@@ -130,7 +130,7 @@ public class SplitterService
         zone.HasSharedItem = true;
         zone.SharedFoodVisual = FoodVisual.Minion;
         zone.SharedItemStage = FoodStage.Raw;
-        zone.SharedItemPosition = layout.GetInputPosition(ZoneType.Splitter);
+        zone.SharedItemPosition = layout.GetWorkItemPosition(ZoneType.Splitter);
 
         foreach (var worker in workers)
         {
@@ -150,7 +150,9 @@ public class SplitterService
             if (worker.PositionLocked)
                 continue;
 
-            worker.TargetPosition = layout.GetWorkerSlotPosition(ZoneType.Splitter, i, workers.Count);
+            worker.TargetPosition = i == 0
+                ? layout.GetWorkItemPosition(ZoneType.Splitter)
+                : layout.GetMinionWorkPosition(ZoneType.Splitter, i - 1);
             worker.Position = Vector2.MoveTowards(
                 worker.Position,
                 worker.TargetPosition,

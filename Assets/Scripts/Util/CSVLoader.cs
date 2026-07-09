@@ -63,6 +63,44 @@ public class CustomerInfo
     }
 }
 
+// 一行描述一个食物/中间产物如何获得：identifier 通过 ingredients 在 machine 上生产。
+// machine == "Ingredient" 表示直接从原料区获取；ingredients 中的 "Minion" 表示以小人作为原材料。
+// dishIdentifier 非空时表示这是一个可解锁的最终菜谱（"0"/"1"/"2"，均为字符串）。
+public class DishInfo
+{
+    public const string MinionIngredient = "Minion";
+    public const string IngredientMachine = "Ingredient";
+
+    public string identifier;
+    public string name;
+    public List<string> ingredients;
+    public string machine;
+    public string dishIdentifier;
+
+    public string DisplayName => string.IsNullOrEmpty(name) ? identifier : name;
+
+    public bool IsFinalDish => !string.IsNullOrEmpty(dishIdentifier);
+
+    public bool IsIngredientSource =>
+        string.Equals(machine, IngredientMachine, System.StringComparison.OrdinalIgnoreCase);
+
+    // CSV 会把空的 ingredients 单元格解析成 [""]，这里过滤掉空项。
+    public List<string> CleanIngredients()
+    {
+        var result = new List<string>();
+        if (ingredients == null)
+            return result;
+
+        foreach (var ing in ingredients)
+        {
+            if (!string.IsNullOrWhiteSpace(ing))
+                result.Add(ing.Trim());
+        }
+
+        return result;
+    }
+}
+
 public static class CSVLoader
 {
     static readonly Dictionary<string, UpgradeInfo> upgradeDict = new Dictionary<string, UpgradeInfo>();
@@ -70,6 +108,8 @@ public static class CSVLoader
     static readonly Dictionary<int, SceneInfo> sceneDict = new Dictionary<int, SceneInfo>();
     static readonly Dictionary<int, List<LevelInfo>> levelByScene = new Dictionary<int, List<LevelInfo>>();
     static readonly Dictionary<string, CustomerInfo> customerDict = new Dictionary<string, CustomerInfo>();
+    static readonly Dictionary<string, DishInfo> dishDict = new Dictionary<string, DishInfo>();
+    static readonly Dictionary<string, DishInfo> dishByDishIdentifier = new Dictionary<string, DishInfo>();
     static bool initialized;
 
     public static bool IsInitialized => initialized && upgradeDict.Count > 0;
@@ -81,6 +121,8 @@ public static class CSVLoader
         sceneDict.Clear();
         levelByScene.Clear();
         customerDict.Clear();
+        dishDict.Clear();
+        dishByDishIdentifier.Clear();
         initialized = false;
 
         var upgradeInfos = CsvUtil.LoadObjects<UpgradeInfo>("upgrade");
@@ -116,6 +158,17 @@ public static class CSVLoader
                 continue;
 
             customerDict[info.identifier] = info;
+        }
+
+        foreach (var info in CsvUtil.LoadObjects<DishInfo>("dish"))
+        {
+            if (string.IsNullOrEmpty(info.identifier))
+                continue;
+
+            dishDict[info.identifier] = info;
+
+            if (info.IsFinalDish && !dishByDishIdentifier.ContainsKey(info.dishIdentifier))
+                dishByDishIdentifier[info.dishIdentifier] = info;
         }
 
         initialized = true;
@@ -203,5 +256,33 @@ public static class CSVLoader
             return 0;
 
         return sceneDict.Keys.Max();
+    }
+
+    public static DishInfo GetDish(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier))
+            return null;
+
+        dishDict.TryGetValue(identifier, out var info);
+        return info;
+    }
+
+    public static DishInfo GetDishByDishIdentifier(string dishIdentifier)
+    {
+        if (string.IsNullOrEmpty(dishIdentifier))
+            return null;
+
+        dishByDishIdentifier.TryGetValue(dishIdentifier, out var info);
+        return info;
+    }
+
+    public static IEnumerable<DishInfo> GetAllDishes()
+    {
+        return dishDict.Values;
+    }
+
+    public static IEnumerable<DishInfo> GetFinalDishes()
+    {
+        return dishByDishIdentifier.Values;
     }
 }

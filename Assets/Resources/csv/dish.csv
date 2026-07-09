@@ -1,9 +1,10 @@
 ﻿identifier,name,ingredients,machine,dishIdentifier
 水果,,,Ingredient,
+淡奶油,,,Ingredient,
 果丁,,水果,Chop,
-水果杯,,果丁,Plate,0
+果切拼盘,,果丁,Plate,0
 果泥,,果丁,Cooker,
-果汁,,果泥,Plate,1
+水果冰沙,,果泥,Plate,1
 面片,,Minion,Chop,
 发泡奶油,,淡奶油,Cooker,
 奶油手指面包,,面片|发泡奶油,Plate,2

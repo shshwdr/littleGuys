@@ -56,7 +56,7 @@ public class ZoneWorkService
             }
         }
 
-        if (arrivedWorkers.Count == 0)
+        if (arrivedWorkers.Count < workers.Count)
         {
             zone.StatusText.Value = "Waiting";
             zone.WorkSpeed.Value = 0f;
@@ -71,13 +71,12 @@ public class ZoneWorkService
         zone.WorkSpeed.Value = operatorCount / zone.BaseDuration;
         zone.TaskProgress.Value += (operatorCount / zone.BaseDuration) * dt;
 
-        Vector2 itemCenter = zone.ConsumeWorkerAsInput
-            ? layout.GetInputPosition(type)
-            : layout.GetWorkItemPosition(type);
+        Vector2 itemCenter = layout.GetWorkItemPosition(type);
         zone.SharedItemPosition = itemCenter;
         zone.HasSharedItem = true;
         zone.SharedItemStage = zone.StepInput;
-        zone.SharedFoodVisual = zone.StepInputVisual;
+        if (zone.ConsumeWorkerAsInput)
+            zone.SharedFoodVisual = FoodVisual.Minion;
 
         if (zone.TaskProgress.Value < 1f)
         {
@@ -97,7 +96,7 @@ public class ZoneWorkService
             outputCount = 2;
 
         for (int i = 0; i < outputCount; i++)
-            ZoneOutputStore.Add(zone, zone.CurrentOrderId, zone.CurrentRecipeId, zone.StepOutput, zone.StepOutputVisual);
+            ZoneOutputStore.Add(zone, zone.CurrentOrderId, zone.CurrentRecipeId, zone.StepOutputId, zone.StepOutput, zone.StepOutputVisual);
         ClearSharedItem(zone);
         model.SetZonePhase(zone, ZonePhase.Idle);
         zone.StatusText.Value = "0%";
@@ -109,5 +108,6 @@ public class ZoneWorkService
         zone.HasSharedItem = false;
         zone.SharedItemStage = FoodStage.None;
         zone.SharedFoodVisual = FoodVisual.None;
+        zone.SharedItemId = "";
     }
 }

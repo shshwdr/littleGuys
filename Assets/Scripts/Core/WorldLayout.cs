@@ -136,7 +136,19 @@ public class WorldLayout
 
     public Vector2 GetWorkerSlotPosition(ZoneType zone, int index, int totalInZone)
     {
-        return GetSlotPositionAround(GetWorkItemPosition(zone), index, totalInZone);
+        return GetMinionWorkPosition(zone, index);
+    }
+
+    public Vector2 GetMinionWorkPosition(ZoneType zone, int index)
+    {
+        if (zonePrefabs.TryGetValue(zone, out var prefab))
+        {
+            var positions = prefab.GetMinionWorkPositions();
+            if (positions.Count > 0)
+                return prefab.GetMinionWorkPosition(index);
+        }
+
+        return GetSlotPositionAround(GetWorkItemPosition(zone), index, Mathf.Max(index + 1, 1));
     }
 
     public Vector2 GetOutputSlotPosition(ZoneType zone, int index, int totalInZone)
@@ -216,11 +228,6 @@ public class WorldLayout
             default:
                 return GetZonePosition(workZone);
         }
-    }
-
-    public ZoneType GetUpstreamZone(ZoneType workZone, string recipeId, ProductionService production)
-    {
-        return production.GetUpstreamZone(workZone, recipeId);
     }
 
     Vector2 GetFallbackZonePosition(ZoneType type)

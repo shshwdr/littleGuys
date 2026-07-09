@@ -1,0 +1,13 @@
+﻿identifier,text,click,logic,timePass
+start,"You are in charge of this ""bakery""",,addDisableAllButtons,
+,Customers will come and request for dessert,,,2
+,They have patience that keeps decrease,,,
+,Best satisfy them before patience goes below 0,,,
+,click to add a minion here to chop some fruit,chopAdd,,3
+,"too slow, add another one",chopAdd,,
+,"Now they finished chopping, you can move one to plate zone",plateAdd,,
+,"Time is limited, maybe try to sacrifice one so the customer get more patience",sacrificeButton,,
+,"There he goes. You can keep serving the next but since you don't have too many minions,",,,
+,I suggest you quit this one.,endGameButton,,
+,you can use your money to upgrade and serve better next turn,,,
+,"That's all you need to know, good luck and enjoy.",,removeDisableAllButtons,

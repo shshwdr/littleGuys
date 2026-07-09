@@ -13,6 +13,7 @@ public static class ResourceSpriteLoader
     static Sprite meatSprite;
     static Sprite minionSprite;
     static Sprite squareSprite;
+    static readonly Dictionary<string, Sprite> foodSpritesById = new Dictionary<string, Sprite>();
 
     public static Sprite GetCustomer() => LoadFirst(ref customerSprite, "customer");
 
@@ -62,6 +63,20 @@ public static class ResourceSpriteLoader
     static Sprite LoadFirstCustomerSil() => LoadFirst(ref customerSilFallbackSprite, "customerSil");
 
     public static Sprite GetFood() => LoadFirst(ref foodSprite, "food");
+
+    // 按 identifier 从 Resources/food/{identifier} 加载食物图片，找不到则回退到默认食物图。
+    public static Sprite GetFoodById(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier))
+            return null;
+
+        if (foodSpritesById.TryGetValue(identifier, out var cached))
+            return cached;
+
+        var sprite = LoadSpriteAtPath("food/" + identifier);
+        foodSpritesById[identifier] = sprite;
+        return sprite;
+    }
     public static Sprite GetVeg() => LoadSprite(ref vegSprite, "food/veg") ?? GetFood();
     public static Sprite GetMeat() => LoadSprite(ref meatSprite, "food/meat") ?? GetFood();
     public static Sprite GetMinion() => LoadFirst(ref minionSprite, "minion");

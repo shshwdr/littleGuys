@@ -8,6 +8,7 @@ public class ZonePrefab : MonoBehaviour
     [SerializeField] Transform inputPoint;
     [SerializeField] Transform workPoint;
     [SerializeField] Transform outputPoint;
+    [SerializeField] Transform minionWorkPoint;
     [SerializeField] Transform workerRoot;
     [SerializeField] string displayLabel;
     [SerializeField] bool startsUnlocked = true;
@@ -26,6 +27,7 @@ public class ZonePrefab : MonoBehaviour
     [SerializeField] SpriteAnimPlayer workAnimPlayer;
 
     readonly List<Vector2> outputPositions = new List<Vector2>();
+    readonly List<Vector2> minionWorkPositions = new List<Vector2>();
 
     GameModel model;
     bool workVisualInitialized;
@@ -58,6 +60,21 @@ public class ZonePrefab : MonoBehaviour
     }
 
     public Vector2 GetWorkerRootPosition() => ToVector2(workerRoot != null ? workerRoot : transform);
+
+    public IReadOnlyList<Vector2> GetMinionWorkPositions()
+    {
+        RefreshMinionWorkPositions();
+        return minionWorkPositions;
+    }
+
+    public Vector2 GetMinionWorkPosition(int index)
+    {
+        RefreshMinionWorkPositions();
+        if (minionWorkPositions.Count == 0)
+            return GetWorkPosition();
+
+        return minionWorkPositions[((index % minionWorkPositions.Count) + minionWorkPositions.Count) % minionWorkPositions.Count];
+    }
 
     public void Setup(GameModel model, WorkerAssignService assignService, CompositeDisposable disposables)
     {
@@ -262,20 +279,13 @@ public class ZonePrefab : MonoBehaviour
         if (bufferPiles != null && bufferPiles.Length > 0)
             return;
 
+        // identifier 模式：每个加工区一个通用产出堆，展示该区所有产出（按 identifier 渲染）。
         switch (zoneType)
         {
             case ZoneType.Chop:
-                bufferPiles = new[]
-                {
-                    CreateBufferPile(model, "ChopOutputPileVeg", FoodStage.Chopped, FoodVisual.Veg),
-                    CreateBufferPile(model, "ChopOutputPileMeat", FoodStage.Chopped, FoodVisual.Meat)
-                };
-                break;
             case ZoneType.Cook:
-                bufferPiles = new[] { CreateBufferPile(model, "CookOutputPile", FoodStage.Cooked, FoodVisual.Veg) };
-                break;
             case ZoneType.Wok:
-                bufferPiles = new[] { CreateBufferPile(model, "WokOutputPile", FoodStage.Fried, FoodVisual.Meat) };
+                bufferPiles = new[] { CreateBufferPile(model, zoneType + "OutputPile", FoodStage.None, FoodVisual.None) };
                 break;
         }
     }
@@ -319,6 +329,19 @@ public class ZonePrefab : MonoBehaviour
             outputPositions.Add(baseOutput.GetChild(i).position);
     }
 
+    void RefreshMinionWorkPositions()
+    {
+        minionWorkPositions.Clear();
+
+        var baseWork = minionWorkPoint != null ? minionWorkPoint : null;
+        if (baseWork == null)
+            return;
+
+        minionWorkPositions.Add(baseWork.position);
+        for (int i = 0; i < baseWork.childCount; i++)
+            minionWorkPositions.Add(baseWork.GetChild(i).position);
+    }
+
     static bool NeedsSharedItemView(ZoneType type)
     {
         return type == ZoneType.Chop
@@ -335,6 +358,7 @@ public class ZonePrefab : MonoBehaviour
         DrawPoint(inputPoint, Color.green, "Input");
         DrawPoint(workPoint, Color.yellow, "Work");
         DrawPoint(outputPoint, Color.cyan, "Output");
+        DrawPoint(minionWorkPoint, Color.magenta, "MinionWork");
         DrawPoint(workerRoot, Color.white, "Workers");
     }
 

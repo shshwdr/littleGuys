@@ -44,9 +44,24 @@ public class Food : MonoBehaviour
 
     public void SetVisual(FoodVisual visual, FoodStage stage)
     {
+        SetVisual(null, visual, stage);
+    }
+
+    // identifier 优先：若能在 Resources/food/{identifier} 找到图片则使用之，
+    // 否则回退到旧的 FoodVisual/FoodStage 着色方案（用于小人、成品等）。
+    public void SetVisual(string identifier, FoodVisual visual, FoodStage stage)
+    {
         EnsureRenderer();
         if (spriteRenderer == null)
             return;
+
+        var byId = ResourceSpriteLoader.GetFoodById(identifier);
+        if (byId != null)
+        {
+            spriteRenderer.sprite = byId;
+            spriteRenderer.color = Color.white;
+            return;
+        }
 
         spriteRenderer.sprite = LoadFoodSprite(visual);
         spriteRenderer.color = FoodVisualColors.GetTint(visual, stage);

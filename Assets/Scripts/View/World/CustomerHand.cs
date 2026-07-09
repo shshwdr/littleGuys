@@ -474,21 +474,19 @@ public class CustomerHand : MonoBehaviour
     {
         RestoreAttachedSorting(root);
 
-        ResolveHandSorting(out int layerId, out int sortingOrder);
+        ResolveHandSorting(out int layerId, out _);
         var snapshots = new List<SortingSnapshot>();
 
         foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
         {
             snapshots.Add(new SortingSnapshot(renderer, renderer.sortingLayerID, renderer.sortingOrder));
             renderer.sortingLayerID = layerId;
-            renderer.sortingOrder = sortingOrder;
         }
 
         foreach (var canvas in root.GetComponentsInChildren<Canvas>(true))
         {
             snapshots.Add(new SortingSnapshot(canvas, canvas.sortingLayerID, canvas.sortingOrder));
             canvas.sortingLayerID = layerId;
-            canvas.sortingOrder = sortingOrder;
         }
 
         if (snapshots.Count > 0)

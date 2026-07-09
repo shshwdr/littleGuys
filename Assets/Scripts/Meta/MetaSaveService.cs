@@ -106,21 +106,31 @@ public static class MetaSaveService
 
             switch (info.effect)
             {
+                // 升级树中第一个/第二个解锁的菜谱分别是 dishIdentifier "1" 和 "2"。
                 case "vegSoup":
-                    model.UnlockedRecipes.Add("vegsoup");
-                    model.GetZone(ZoneType.Cook).IsUnlocked = true;
+                    UnlockDish(model, "1");
+                    break;
+                case "stirFry":
+                    UnlockDish(model, "2");
                     break;
                 case "splitMachine":
                     model.GetZone(ZoneType.Splitter).IsUnlocked = true;
-                    break;
-                case "stirFry":
-                    model.UnlockedRecipes.Add("stirfry");
-                    model.GetZone(ZoneType.Wok).IsUnlocked = true;
                     break;
             }
         }
 
         model.ActiveRecipeId.Value = GetHighestUnlockedRecipeId(model);
+    }
+
+    // 解锁某 dishIdentifier 对应的菜谱及其所需机器。
+    static void UnlockDish(GameModel model, string dishIdentifier)
+    {
+        var recipeId = DishRecipeBuilder.GetRecipeIdForDish(model.Recipes, dishIdentifier);
+        if (string.IsNullOrEmpty(recipeId))
+            return;
+
+        model.UnlockedRecipes.Add(recipeId);
+        DishRecipeBuilder.UnlockZonesForRecipe(model, model.GetRecipe(recipeId));
     }
 
     public static bool IsSpeedUpUnlocked(MetaSaveData meta)

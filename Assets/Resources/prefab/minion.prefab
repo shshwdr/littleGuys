@@ -73,7 +73,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: -693390101
   m_SortingLayer: 2
-  m_SortingOrder: 0
+  m_SortingOrder: 1
   m_Sprite: {fileID: 21300000, guid: 97d06ad14303e7d458e6acacb4ff3a8f, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -99,7 +99,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetRenderer: {fileID: 7866847643893948263}
   spriteList: []
-  frameTime: 0.3
+  frameTime: 0.1
   loop: 1
   playOnEnable: 1
 --- !u!1 &5244347373674787407

@@ -232,7 +232,40 @@ public class CustomerSpawnService
 
     public CustomerData GetFirstWaitingCustomer()
     {
-        return model.Customers.FirstOrDefault(c => !c.IsServed && !c.IsFullySatiated);
+        // 需求份额需扣除已在途（放到取餐位、待取走）的份额，避免重复投喂。
+        return model.Customers.FirstOrDefault(c =>
+            !c.IsServed && (c.ReceivedSatiety + c.PendingSatiety) < c.RequiredSatiety);
+    }
+
+    // 一份成品交付后会给顾客增加的饱食度（含耐心加成）。
+    public int ComputeDeliverySatiety(string recipeId)
+    {
+        var recipe = model.GetRecipe(recipeId);
+        int satiety = recipe != null ? recipe.Satiety : 0;
+        if (satiety <= 0)
+            return 0;
+
+        int bonus = 0;
+        if (model.Config.patienceFoodPercent > 0)
+            bonus = Mathf.CeilToInt(satiety * model.Config.patienceFoodPercent / 100f);
+
+        return satiety + bonus;
+    }
+
+    public void ReservePendingSatiety(CustomerData customer, int amount)
+    {
+        if (customer == null || amount <= 0)
+            return;
+
+        customer.PendingSatiety += amount;
+    }
+
+    public void ReleasePendingSatiety(CustomerData customer, int amount)
+    {
+        if (customer == null || amount <= 0)
+            return;
+
+        customer.PendingSatiety = Mathf.Max(0, customer.PendingSatiety - amount);
     }
 
     public void ServeCustomer(CustomerData customer)

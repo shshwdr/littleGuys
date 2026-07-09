@@ -197,7 +197,6 @@ public class GameBootstrap : MonoBehaviour
     {
         var gameModel = new GameModel { Config = config };
         gameModel.Recipes = RecipeFactory.CreateMap(config);
-        gameModel.UnlockedRecipes.Add("vegsalad");
 
         foreach (var zonePrefab in layout.GetSceneZones())
         {
@@ -215,6 +214,15 @@ public class GameBootstrap : MonoBehaviour
         }
 
         EnsureDefaultZones(gameModel);
+
+        // 初始解锁 dishIdentifier 为 "0" 的菜谱及其所需机器。
+        var dish0Id = DishRecipeBuilder.GetRecipeIdForDish(gameModel.Recipes, "0");
+        if (!string.IsNullOrEmpty(dish0Id))
+        {
+            gameModel.UnlockedRecipes.Add(dish0Id);
+            DishRecipeBuilder.UnlockZonesForRecipe(gameModel, gameModel.GetRecipe(dish0Id));
+        }
+
         MetaSaveService.ApplyUnlocks(gameModel, metaSave);
 
         for (int i = 0; i < config.totalWorkers; i++)
@@ -496,17 +504,23 @@ public class GameBootstrap : MonoBehaviour
     void OnFoodReadyForHandPickup(FoodHandPickupRequest request)
     {
         var customer = request.Customer;
+        // 立刻在取餐位生成一份独立的成品显示，它独立于 Plate 机器区，
+        // 因此 plate 工人可以马上开始下一步而不必等这只手来取。
+        GameObject foodGo = CreateHandFoodVisual(request);
+
         QueueHandDoorAction(customer?.CustomerTypeId ?? "normal", closeDoor =>
         {
             customerHand = EnsureCustomerHandFor(customer?.CustomerTypeId ?? "normal");
             if (customerHand == null)
             {
+                if (foodGo != null)
+                    Destroy(foodGo);
                 CompleteFoodDelivery(request);
                 closeDoor?.Invoke();
                 return;
             }
 
-            RunHandFoodPickup(request, closeDoor);
+            RunHandFoodPickup(request, foodGo, closeDoor);
         });
     }
 
@@ -559,39 +573,23 @@ public class GameBootstrap : MonoBehaviour
             });
     }
 
-    void RunHandFoodPickup(FoodHandPickupRequest request, Action closeDoor)
+    void RunHandFoodPickup(FoodHandPickupRequest request, GameObject foodGo, Action closeDoor)
     {
-        ZoneItemView plateItemView = null;
-        if (layout.TryGetZonePrefab(ZoneType.Plate, out var platePrefab))
-            plateItemView = platePrefab.ItemView;
-
-        Transform foodTransform = plateItemView != null ? plateItemView.transform : null;
-        GameObject fallbackFoodGo = null;
+        Transform foodTransform = foodGo != null ? foodGo.transform : null;
 
         customerHand.PlayHandSequence(
             layout.GetFoodOutputPosition(),
             onBeforeExtend: () => customerHand.SetHandOpen(true),
             onAtTarget: () =>
             {
-                if (foodTransform == null)
-                {
-                    fallbackFoodGo = CreateHandFoodVisual(request);
-                    foodTransform = fallbackFoodGo.transform;
-                }
-                else
-                {
-                    plateItemView.SetExternallyControlled(true);
-                }
-
                 customerHand.SetHandOpen(false);
-                customerHand.AttachToGrab(foodTransform);
+                if (foodTransform != null)
+                    customerHand.AttachToGrab(foodTransform);
             },
             onComplete: () =>
             {
-                if (plateItemView != null)
-                    plateItemView.ResetAfterCarry();
-                else if (fallbackFoodGo != null)
-                    Destroy(fallbackFoodGo);
+                if (foodGo != null)
+                    Destroy(foodGo);
 
                 customerHand.SetHandOpen(true);
                 CompleteFoodDelivery(request);
@@ -605,13 +603,13 @@ public class GameBootstrap : MonoBehaviour
             return;
 
         var recipe = model.GetRecipe(request.RecipeId);
-        int satiety = recipe != null ? recipe.Satiety : 0;
-        int bonusSatiety = 0;
-        if (model.Config.patienceFoodPercent > 0 && satiety > 0)
-            bonusSatiety = Mathf.CeilToInt(satiety * model.Config.patienceFoodPercent / 100f);
+        int baseSatiety = recipe != null ? recipe.Satiety : 0;
+        int deliverySatiety = customerService.ComputeDeliverySatiety(request.RecipeId);
 
-        customerService.AddSatiety(request.Customer, satiety + bonusSatiety);
-        model.Gold.Value += satiety + model.Config.dishPriceBonus;
+        // 放到取餐位时已预扣份额，这里落定：释放预扣并真正累加饱食度。
+        customerService.ReleasePendingSatiety(request.Customer, deliverySatiety);
+        customerService.AddSatiety(request.Customer, deliverySatiety);
+        model.Gold.Value += baseSatiety + model.Config.dishPriceBonus;
         productionService.OnOrderDelivered(request.OrderId);
     }
 
@@ -624,7 +622,7 @@ public class GameBootstrap : MonoBehaviour
     {
         var food = Food.Spawn(null, "HandFood");
         food.transform.position = layout.GetFoodOutputPosition();
-        food.SetVisual(request.Visual, request.Stage);
+        food.SetVisual(request.Identifier, request.Visual, request.Stage);
         return food.gameObject;
     }
 
