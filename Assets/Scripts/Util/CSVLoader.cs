@@ -101,6 +101,17 @@ public class DishInfo
     }
 }
 
+public class TutorialInfo
+{
+    public string identifier;
+    public string text;
+    public string click;
+    public string higherSort;
+    public string logic;
+    public float timePass;
+    public int isEnd;
+}
+
 public static class CSVLoader
 {
     static readonly Dictionary<string, UpgradeInfo> upgradeDict = new Dictionary<string, UpgradeInfo>();
@@ -110,6 +121,7 @@ public static class CSVLoader
     static readonly Dictionary<string, CustomerInfo> customerDict = new Dictionary<string, CustomerInfo>();
     static readonly Dictionary<string, DishInfo> dishDict = new Dictionary<string, DishInfo>();
     static readonly Dictionary<string, DishInfo> dishByDishIdentifier = new Dictionary<string, DishInfo>();
+    static readonly Dictionary<string, List<TutorialInfo>> tutorialByIdentifier = new Dictionary<string, List<TutorialInfo>>();
     static bool initialized;
 
     public static bool IsInitialized => initialized && upgradeDict.Count > 0;
@@ -123,6 +135,7 @@ public static class CSVLoader
         customerDict.Clear();
         dishDict.Clear();
         dishByDishIdentifier.Clear();
+        tutorialByIdentifier.Clear();
         initialized = false;
 
         var upgradeInfos = CsvUtil.LoadObjects<UpgradeInfo>("upgrade");
@@ -169,6 +182,25 @@ public static class CSVLoader
 
             if (info.IsFinalDish && !dishByDishIdentifier.ContainsKey(info.dishIdentifier))
                 dishByDishIdentifier[info.dishIdentifier] = info;
+        }
+
+        string currentTutorialId = string.Empty;
+        foreach (var info in CsvUtil.LoadObjects<TutorialInfo>("tutorial"))
+        {
+            if (!string.IsNullOrEmpty(info.identifier))
+                currentTutorialId = info.identifier;
+
+            if (string.IsNullOrEmpty(currentTutorialId))
+                continue;
+
+            info.identifier = currentTutorialId;
+            if (!tutorialByIdentifier.TryGetValue(currentTutorialId, out var list))
+            {
+                list = new List<TutorialInfo>();
+                tutorialByIdentifier[currentTutorialId] = list;
+            }
+
+            list.Add(info);
         }
 
         initialized = true;
@@ -284,5 +316,16 @@ public static class CSVLoader
     public static IEnumerable<DishInfo> GetFinalDishes()
     {
         return dishByDishIdentifier.Values;
+    }
+
+    public static List<TutorialInfo> GetTutorialRows(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier))
+            return new List<TutorialInfo>();
+
+        if (!tutorialByIdentifier.TryGetValue(identifier, out var rows))
+            return new List<TutorialInfo>();
+
+        return rows;
     }
 }

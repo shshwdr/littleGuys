@@ -56,7 +56,13 @@ public class GameBootstrap : MonoBehaviour
     Transform workerRoot;
     UpgradePanelView upgradePanel;
     GameHudView hudView;
+    TutorialManager tutorialManager;
     bool runGoldSettled;
+    bool finishedChoppingTutorialTriggered;
+    bool almostLoseTutorialTriggered;
+    bool sacrificeTutorialTriggered;
+    bool finishedServeTutorialTriggered;
+    CustomerData patienceTutorialCustomer;
     GameObject customerViewPrefab;
 
     public Vector3 FoodOutputPosition => foodOutputPos != null ? foodOutputPos.position : Vector3.zero;
@@ -125,6 +131,7 @@ public class GameBootstrap : MonoBehaviour
         sacrificeService.SacrificeReadyForPickup += OnSacrificeReadyForPickup;
         sacrificeService.SacrificeSatietyGranted += OnSacrificeSatietyGranted;
         transportService.FoodReadyForHandPickup += OnFoodReadyForHandPickup;
+        workService.ZoneStepCompleted += OnZoneStepCompleted;
 
         splitterService.WorkerAdded += OnWorkerAdded;
         splitterService.WorkerRemoved += OnWorkerRemoved;
@@ -295,17 +302,60 @@ public class GameBootstrap : MonoBehaviour
 
     void CreateUi(MetaSaveData metaSave)
     {
-        var hudGo = new GameObject("GameHud");
-        hudGo.transform.SetParent(transform, false);
-        bool speedUpUnlocked = MetaSaveService.IsSpeedUpUnlocked(metaSave);
-        hudView = hudGo.AddComponent<GameHudView>();
-        hudView.Setup(model, disposables, speedUpUnlocked, OnHudPrimaryClicked, metaSave.CurrentScene);
+        hudView = FindObjectOfType<GameHudView>(true);
+        if (hudView == null)
+        {
+            Debug.LogWarning("GameHudView not found in scene.");
+        }
+        else
+        {
+            bool speedUpUnlocked = MetaSaveService.IsSpeedUpUnlocked(metaSave);
+            hudView.Setup(model, disposables, speedUpUnlocked, OnHudPrimaryClicked, metaSave.CurrentScene);
+        }
 
         var gameOverGo = new GameObject("GameOver");
         gameOverGo.transform.SetParent(transform, false);
         gameOverGo.AddComponent<GameOverView>().Setup(model, this, disposables);
 
         EnsureUpgradePanel(metaSave);
+
+        tutorialManager = FindObjectOfType<TutorialManager>(true);
+        tutorialManager?.TryShowTutorial("start");
+    }
+
+    void OnZoneStepCompleted(ZoneType zoneType)
+    {
+        if (zoneType != ZoneType.Chop || finishedChoppingTutorialTriggered)
+            return;
+
+        finishedChoppingTutorialTriggered = true;
+        tutorialManager?.TryShowTutorial("finishedChopping");
+    }
+
+    void BindAlmostLoseTutorial(CustomerData customer)
+    {
+        if (almostLoseTutorialTriggered || patienceTutorialCustomer != null || customer == null)
+            return;
+
+        patienceTutorialCustomer = customer;
+        customer.Patience
+            .Subscribe(patience => TryTriggerAlmostLoseTutorial(customer, patience))
+            .AddTo(disposables);
+    }
+
+    void TryTriggerAlmostLoseTutorial(CustomerData customer, float patience)
+    {
+        if (almostLoseTutorialTriggered || customer != patienceTutorialCustomer || customer.IsServed)
+            return;
+
+        if (customer.MaxPatience <= 0f)
+            return;
+
+        if (patience / customer.MaxPatience > 0.2f)
+            return;
+
+        almostLoseTutorialTriggered = true;
+        tutorialManager?.TryShowTutorial("almostLose");
     }
 
     void OnHudPrimaryClicked()
@@ -616,6 +666,12 @@ public class GameBootstrap : MonoBehaviour
     void OnSacrificeSatietyGranted(CustomerData customer, int satiety)
     {
         customerService.AddSatiety(customer, satiety);
+
+        if (sacrificeTutorialTriggered)
+            return;
+
+        sacrificeTutorialTriggered = true;
+        tutorialManager?.TryShowTutorial("sacrificed");
     }
 
     GameObject CreateHandFoodVisual(FoodHandPickupRequest request)
@@ -658,6 +714,8 @@ public class GameBootstrap : MonoBehaviour
 
     void OnCustomerAdded(CustomerData customer)
     {
+        BindAlmostLoseTutorial(customer);
+
         if (customerSil == null && customerHand == null)
         {
             customer.IsAwaitingEntrance = false;
@@ -765,6 +823,12 @@ public class GameBootstrap : MonoBehaviour
         customerViews.Remove(customer);
         if (view != null)
             Destroy(view.gameObject);
+
+        if (!finishedServeTutorialTriggered && customer != null && customer.IsServed)
+        {
+            finishedServeTutorialTriggered = true;
+            tutorialManager?.TryShowTutorial("finishedServe");
+        }
     }
 
     void RefreshCustomerPositions()

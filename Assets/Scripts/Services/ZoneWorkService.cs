@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class ZoneWorkService
 {
+    public event System.Action<ZoneType> ZoneStepCompleted;
     readonly GameModel model;
     readonly WorldLayout layout;
     readonly ProductionService production;
@@ -101,6 +102,7 @@ public class ZoneWorkService
         model.SetZonePhase(zone, ZonePhase.Idle);
         zone.StatusText.Value = "0%";
         production.CompleteZoneStep(zone, type);
+        ZoneStepCompleted?.Invoke(type);
     }
 
     static void ClearSharedItem(ZoneData zone)

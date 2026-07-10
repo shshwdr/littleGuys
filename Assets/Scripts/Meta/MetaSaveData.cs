@@ -13,6 +13,7 @@ public class MetaSaveData
 {
     public int MetaGold;
     public int CurrentScene;
+    public bool TutorialCompleted;
     public UpgradeLevelEntry[] UpgradeLevels = Array.Empty<UpgradeLevelEntry>();
 
     [NonSerialized] Dictionary<string, int> levelCache;
