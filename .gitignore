@@ -138,7 +138,6 @@ crashlytics-build.properties
 
 # extra
 .idea/
-data/
 Assets/Doozy/Editor/Internal/ProcessorsSettings.asset
 Assets/Plugins/I2/Localization/I2Localization_PlayMaker.unitypackage.meta
 Assets/Doozy/Editor/Internal/ProcessorsSettings.asset
