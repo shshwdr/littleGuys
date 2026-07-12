@@ -28,6 +28,7 @@ public class GameOverView : MonoBehaviour
                 {
                     case GameState.TimeOut:
                         Show("Time Out", string.Empty, "Continue", () => bootstrap.EnterUpgradeMode(string.Empty));
+                        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/UI/sfx_ui_time_out");
                         break;
                     case GameState.GameOver:
                         Show("Game Over", string.Empty, "Continue", () => bootstrap.EnterUpgradeMode(string.Empty));

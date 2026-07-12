@@ -2603,6 +2603,20 @@ MonoBehaviour:
   foodOutputPos: {fileID: 1153773485}
   sacrificePos: {fileID: 1149437377}
   handPos: {fileID: 130422787}
+  gameplayMusicEvent:
+    Guid:
+      Data1: 923297039
+      Data2: 1265810281
+      Data3: 165152702
+      Data4: 957564353
+    Path: event:/Music/mus_gameplay
+  upgradeMusicEvent:
+    Guid:
+      Data1: -658397996
+      Data2: 1264335721
+      Data3: 187880365
+      Data4: 255556840
+    Path: event:/Music/mus_upgrade
 --- !u!1 &1030795538
 GameObject:
   m_ObjectHideFlags: 0

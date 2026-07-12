@@ -71,6 +71,7 @@ public class WorkerAssignService
         var worker = model.Workers.FirstOrDefault(w => w.AssignedZone == ZoneType.Idle && w.CanAssign)
             ?? model.Workers.First(w => IsWorkerAvailableForAssign(w, zone));
         AssignWorkerToZone(worker, zone);
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/UI/sfx_ui_plus_buttom");
     }
 
     public void TryRemoveWorker(ZoneType zone)
@@ -80,6 +81,8 @@ public class WorkerAssignService
 
         var worker = model.Workers.First(w => w.AssignedZone == zone);
         AssignWorkerToZone(worker, ZoneType.Idle);
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/UI/sfx_ui_minor_buttom");
+
     }
 
     public void AssignWorkerToZone(WorkerData worker, ZoneType zone)

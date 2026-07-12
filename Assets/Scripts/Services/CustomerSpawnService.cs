@@ -154,6 +154,7 @@ public class CustomerSpawnService
         model.CurrentSpawnInterval = GetRowInterval(rowIndex);
 
         model.LevelEncounterCustomerIndex++;
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/Costumers/sfx_costumer_in");
         if (model.LevelEncounterCustomerIndex >= row.encounters.Count)
             AdvanceEncounterRow();
     }
