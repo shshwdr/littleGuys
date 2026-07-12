@@ -32,6 +32,9 @@ public class GameOverView : MonoBehaviour
                 switch (state)
                 {
                     case GameState.TimeOut:
+                        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/UI/sfx_ui_time_out");
+                        ShowPanel(gameOverPanel, () => bootstrap.EnterUpgradeMode(string.Empty));
+                        break;
                     case GameState.GameOver:
                         ShowPanel(gameOverPanel, () => bootstrap.EnterUpgradeMode(string.Empty));
                         break;

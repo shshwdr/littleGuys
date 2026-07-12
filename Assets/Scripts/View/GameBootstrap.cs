@@ -25,6 +25,13 @@ public class GameBootstrap : MonoBehaviour
     [SerializeField] Transform sacrificePos;
     [SerializeField] Transform handPos;
 
+    [Header("FMOD Music Configurations")]
+    [SerializeField] private FMODUnity.EventReference gameplayMusicEvent;
+    [SerializeField] private FMODUnity.EventReference upgradeMusicEvent;
+
+    private FMOD.Studio.EventInstance gameplayMusicInstance;
+    private FMOD.Studio.EventInstance upgradeMusicInstance;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoCreate()
     {
@@ -95,6 +102,21 @@ public class GameBootstrap : MonoBehaviour
     {
         Time.timeScale = 1f;
         disposables.Dispose();
+        if (Instance == this)
+            Instance = null;
+
+        if (gameplayMusicInstance.isValid())
+        {
+            gameplayMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
+            gameplayMusicInstance.release();
+        }
+
+        if (upgradeMusicInstance.isValid())
+        {
+            upgradeMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
+            upgradeMusicInstance.release();
+        }
+
         if (Instance == this)
             Instance = null;
     }
@@ -422,6 +444,22 @@ public class GameBootstrap : MonoBehaviour
             upgradeViewRoot.SetActive(false);
 
         hudView?.SetUpgradeMode(false);
+
+        if (upgradeMusicInstance.isValid())
+        {
+            upgradeMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
+            upgradeMusicInstance.release();
+        }
+
+        // 2. Start Gameplay Music if not already playing
+        FMOD.Studio.PLAYBACK_STATE gameplayState;
+        gameplayMusicInstance.getPlaybackState(out gameplayState);
+
+        if (gameplayState != FMOD.Studio.PLAYBACK_STATE.PLAYING && !gameplayMusicEvent.IsNull)
+        {
+            gameplayMusicInstance = FMODUnity.RuntimeManager.CreateInstance(gameplayMusicEvent);
+            gameplayMusicInstance.start();
+        }
     }
 
     public void EnterUpgradeMode(string summaryText)
@@ -444,6 +482,21 @@ public class GameBootstrap : MonoBehaviour
         {
             openUpgradeTutorialTriggered = true;
             tutorialManager?.TryShowTutorial("upgradeView");
+        }
+
+        if (gameplayMusicInstance.isValid())
+        {
+            gameplayMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
+            gameplayMusicInstance.release();
+        }
+
+        FMOD.Studio.PLAYBACK_STATE upgradeState;
+        upgradeMusicInstance.getPlaybackState(out upgradeState);
+
+        if (upgradeState != FMOD.Studio.PLAYBACK_STATE.PLAYING && !upgradeMusicEvent.IsNull)
+        {
+            upgradeMusicInstance = FMODUnity.RuntimeManager.CreateInstance(upgradeMusicEvent);
+            upgradeMusicInstance.start();
         }
     }
 
@@ -652,6 +705,7 @@ public class GameBootstrap : MonoBehaviour
                 customerHand.SetHandOpen(false);
                 if (foodTransform != null)
                     customerHand.AttachToGrab(foodTransform);
+                FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/Costumers/sfx_costumer_eats");
             },
             onComplete: () =>
             {
@@ -727,18 +781,20 @@ public class GameBootstrap : MonoBehaviour
         workerViews.Remove(worker.Id);
         if (view != null)
             Destroy(view.gameObject);
+
     }
 
     void OnCustomerAdded(CustomerData customer)
     {
         BindAlmostLoseTutorial(customer);
+   
 
         if (customerSil == null && customerHand == null)
         {
             customer.IsAwaitingEntrance = false;
             CreateCustomerView(customer);
-            RefreshCustomerPositions();
-            return;
+            RefreshCustomerPositions();           
+            return;           
         }
 
         if (customer.IsBoss)
