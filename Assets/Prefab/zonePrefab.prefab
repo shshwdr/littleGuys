@@ -1036,7 +1036,11 @@ PrefabInstance:
     - target: {fileID: 56207935498412358, guid: c734820e299d30c46bd52b8981f25399, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 21300000, guid: 38e270ee6512fac408512659f662b62b, type: 3}
+      objectReference: {fileID: 21300000, guid: 195e704c4110e5441b7f51b4a448fb69, type: 3}
+    - target: {fileID: 56207935498412358, guid: c734820e299d30c46bd52b8981f25399, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 953137547218518613, guid: c734820e299d30c46bd52b8981f25399, type: 3}
       propertyPath: m_Name
       value: minus
@@ -1125,6 +1129,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: 195e704c4110e5441b7f51b4a448fb69, type: 3}
+    - target: {fileID: 3668787986928635917, guid: c734820e299d30c46bd52b8981f25399, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8929265766599899877, guid: c734820e299d30c46bd52b8981f25399, type: 3}
       propertyPath: m_SizeDelta.x
       value: 60
@@ -1664,6 +1672,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 3920353845584415654}
     m_Modifications:
+    - target: {fileID: 56207935498412358, guid: c734820e299d30c46bd52b8981f25399, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 0e8e0c4a005922842b5d9ccb23dac1a0, type: 3}
+    - target: {fileID: 56207935498412358, guid: c734820e299d30c46bd52b8981f25399, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 953137547218518613, guid: c734820e299d30c46bd52b8981f25399, type: 3}
       propertyPath: m_Name
       value: add
@@ -1752,6 +1768,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: 0e8e0c4a005922842b5d9ccb23dac1a0, type: 3}
+    - target: {fileID: 3668787986928635917, guid: c734820e299d30c46bd52b8981f25399, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8929265766599899877, guid: c734820e299d30c46bd52b8981f25399, type: 3}
       propertyPath: m_SizeDelta.x
       value: 60
