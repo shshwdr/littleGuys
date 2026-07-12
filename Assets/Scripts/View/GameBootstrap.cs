@@ -393,6 +393,8 @@ public class GameBootstrap : MonoBehaviour
 
     void OnHudPrimaryClicked()
     {
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/UI/sfx_ui_restart_buttom");
+
         if (upgradeViewRoot != null && upgradeViewRoot.activeSelf)
         {
             SceneFlowService.LoadMainGame();

@@ -15,8 +15,9 @@ public class GameHudView : MonoBehaviour
 
     [Header("Progress")]
     [SerializeField] GameObject progressPanel;
-    [SerializeField] Image progressFill;
-    [SerializeField] TMP_Text progressLabel;
+    [SerializeField] Transform cakeParent;
+    [SerializeField] Sprite cakeEmpty;
+    [SerializeField] Sprite cakeFull;
 
     [Header("Timer")]
     [SerializeField] GameObject timerPanel;
@@ -71,11 +72,11 @@ public class GameHudView : MonoBehaviour
             .AddTo(disposables);
 
         model.SceneProgressChanged
-            .Subscribe(_ => RefreshProgressBar())
+            .Subscribe(_ => RefreshCakeProgress())
             .AddTo(disposables);
 
         model.BossFightChanged
-            .Subscribe(_ => RefreshProgressBar())
+            .Subscribe(_ => RefreshCakeProgress())
             .AddTo(disposables);
 
         model.LevelTimeChanged
@@ -108,37 +109,37 @@ public class GameHudView : MonoBehaviour
         if (upgradeMode && primaryButtonLabel != null)
             primaryButtonLabel.text = sceneStartLabel;
 
-        RefreshProgressBar();
+        RefreshCakeProgress();
         RefreshTimerBar(model != null ? model.LevelTimeRemaining : 0f);
     }
 
-    void RefreshProgressBar()
+    void RefreshCakeProgress()
     {
-        if (model == null || progressFill == null || progressLabel == null)
+        if (model == null || cakeParent == null)
             return;
-
-        if (upgradeMode)
-        {
-            progressFill.fillAmount = 0f;
-            progressLabel.text = string.Empty;
-            return;
-        }
 
         var scene = CSVLoader.GetScene(model.CurrentSceneId);
         int sceneFull = scene != null ? scene.full : 6;
         bool bossFight = model.BossHasSpawned || model.InBossFight;
+        int filledCount = bossFight
+            ? sceneFull
+            : Mathf.Clamp(model.SceneProgress, 0, sceneFull);
 
-        if (bossFight)
+        for (int i = 0; i < cakeParent.childCount; i++)
         {
-            progressFill.fillAmount = 1f;
-            progressLabel.text = "Boss Fight!";
-            return;
-        }
+            Transform child = cakeParent.GetChild(i);
+            bool visible = i < sceneFull;
+            child.gameObject.SetActive(visible);
+            if (!visible)
+                continue;
 
-        progressFill.fillAmount = sceneFull > 0
-            ? Mathf.Clamp01((float)model.SceneProgress / sceneFull)
-            : 0f;
-        progressLabel.text = $"{model.SceneProgress}/{sceneFull}";
+            var image = child.GetComponent<Image>();
+            if (image == null)
+                continue;
+
+            if (cakeEmpty != null && cakeFull != null)
+                image.sprite = i < filledCount ? cakeFull : cakeEmpty;
+        }
     }
 
     void RefreshTimerBar(float remainingSeconds)
@@ -175,6 +176,8 @@ public class GameHudView : MonoBehaviour
 
         if (progressPanel != null)
             progressPanel.SetActive(!isUpgradeMode);
+        if (cakeParent != null)
+            cakeParent.gameObject.SetActive(!isUpgradeMode);
         if (timerPanel != null)
             timerPanel.SetActive(!isUpgradeMode);
         if (speedPanel != null)
@@ -186,7 +189,7 @@ public class GameHudView : MonoBehaviour
         }
 
         RefreshGoldText(model != null ? model.Gold.Value : 0);
-        RefreshProgressBar();
+        RefreshCakeProgress();
         RefreshTimerBar(model != null ? model.LevelTimeRemaining : 0f);
     }
 
@@ -198,7 +201,7 @@ public class GameHudView : MonoBehaviour
         if (upgradeMode)
         {
             var meta = MetaSaveService.Load();
-            goldText.text = $"Meta Gold: {meta.MetaGold}";
+            goldText.text = $"Gold: {meta.MetaGold}";
             return;
         }
 

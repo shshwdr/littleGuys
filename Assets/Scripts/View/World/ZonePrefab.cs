@@ -32,6 +32,7 @@ public class ZonePrefab : MonoBehaviour
     GameModel model;
     bool workVisualInitialized;
     bool isShowingWork;
+    bool isWorkSfxPlaying;
 
     public ZoneType ZoneType => zoneType;
     public bool StartsUnlocked => startsUnlocked;
@@ -117,10 +118,12 @@ public class ZonePrefab : MonoBehaviour
         if (zoneType == ZoneType.Ingredient)
             return;
 
-        if (workObject == null && notWorkObject == null)
-            return;
-
         SetWorkVisual(IsMachineWorking());
+    }
+
+    void OnDestroy()
+    {
+        StopWorkSfx();
     }
 
     bool IsMachineWorking()
@@ -156,7 +159,50 @@ public class ZonePrefab : MonoBehaviour
             workObject.SetActive(working);
 
         if (working)
+        {
             ResolveWorkAnimPlayer()?.Play(true);
+            StartWorkSfx();
+        }
+        else
+        {
+            StopWorkSfx();
+        }
+    }
+
+    void StartWorkSfx()
+    {
+        if (isWorkSfxPlaying)
+            return;
+
+        string path = GetWorkSfxEvent();
+        if (string.IsNullOrEmpty(path))
+            return;
+
+        isWorkSfxPlaying = true;
+        // TODO: FMODUnity.RuntimeManager.CreateInstance(path) + start()
+        Debug.Log($"[ZoneSFX] Start {zoneType}: {path}");
+    }
+
+    void StopWorkSfx()
+    {
+        if (!isWorkSfxPlaying)
+            return;
+
+        string path = GetWorkSfxEvent();
+        isWorkSfxPlaying = false;
+        // TODO: stop + release EventInstance
+        Debug.Log($"[ZoneSFX] Stop {zoneType}: {path}");
+    }
+
+    string GetWorkSfxEvent()
+    {
+        switch (zoneType)
+        {
+            case ZoneType.Chop: return "event:/SFX/Machines/sfx_chop_loop";
+            case ZoneType.Cook: return "event:/SFX/Machines/sfx_mixer_loop";
+            case ZoneType.Plate: return "event:/SFX/Machines/sfx_plate_loop";
+            default: return null;
+        }
     }
 
     void PlayWorkOnce()
@@ -166,6 +212,8 @@ public class ZonePrefab : MonoBehaviour
             // Nothing to animate; keep notWork visible.
             return;
         }
+
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/Machines/sfx_open_fridge");
 
         if (notWorkObject != null)
             notWorkObject.SetActive(false);
