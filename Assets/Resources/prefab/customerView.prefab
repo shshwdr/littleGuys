@@ -807,7 +807,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6245535635092765337, guid: 50ab89236bea5e34c9b5d3712be360c8, type: 3}
       propertyPath: m_text
-      value: EAT!
+      value: Sacrifice
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

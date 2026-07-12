@@ -16,6 +16,10 @@ public class GameBootstrap : MonoBehaviour
     [Tooltip("Upgrade UI root shown after game over.")]
     [SerializeField] GameObject upgradeViewRoot;
 
+    [Header("Upgrade View")]
+    [Tooltip("升级树拖拽与滚轮缩放灵敏度，值越大移动/缩放越多。")]
+    public float upgradeTreeScrollSensitivity = 0.35f;
+
     [Header("World Positions")]
     [SerializeField] Transform foodOutputPos;
     [SerializeField] Transform sacrificePos;
@@ -62,6 +66,7 @@ public class GameBootstrap : MonoBehaviour
     bool almostLoseTutorialTriggered;
     bool sacrificeTutorialTriggered;
     bool finishedServeTutorialTriggered;
+    bool openUpgradeTutorialTriggered;
     CustomerData patienceTutorialCustomer;
     GameObject customerViewPrefab;
 
@@ -313,14 +318,19 @@ public class GameBootstrap : MonoBehaviour
             hudView.Setup(model, disposables, speedUpUnlocked, OnHudPrimaryClicked, metaSave.CurrentScene);
         }
 
-        var gameOverGo = new GameObject("GameOver");
-        gameOverGo.transform.SetParent(transform, false);
-        gameOverGo.AddComponent<GameOverView>().Setup(model, this, disposables);
+        var gameOverView = FindObjectOfType<GameOverView>(true);
+        if (gameOverView == null)
+            Debug.LogWarning("GameOverView not found in scene. Place it under GameHud and wire the panels.");
+        else
+            gameOverView.Setup(model, this, disposables);
 
         EnsureUpgradePanel(metaSave);
 
         tutorialManager = FindObjectOfType<TutorialManager>(true);
-        tutorialManager?.TryShowTutorial("start");
+        if (tutorialManager == null)
+            Debug.LogWarning("TutorialManager not found in scene.");
+        else
+            tutorialManager.TryShowTutorial("start");
     }
 
     void OnZoneStepCompleted(ZoneType zoneType)
@@ -351,7 +361,8 @@ public class GameBootstrap : MonoBehaviour
         if (customer.MaxPatience <= 0f)
             return;
 
-        if (patience / customer.MaxPatience > 0.2f)
+        // 第一个顾客耐心剩余 ≤ 30% 时触发。
+        if (patience / customer.MaxPatience > 0.3f)
             return;
 
         almostLoseTutorialTriggered = true;
@@ -394,7 +405,7 @@ public class GameBootstrap : MonoBehaviour
                 upgradePanel = upgradeViewRoot.AddComponent<UpgradePanelView>();
         }
 
-        upgradePanel.Setup(metaSave, disposables, () => hudView?.SetUpgradeMode(true));
+        upgradePanel.Setup(metaSave, disposables, () => hudView?.SetUpgradeMode(true), upgradeTreeScrollSensitivity);
     }
 
     Transform GetMainGameParent()
@@ -428,6 +439,12 @@ public class GameBootstrap : MonoBehaviour
         hudView?.UpdateSceneDisplay(meta.CurrentScene);
         upgradePanel?.SetSummary(summaryText);
         upgradePanel?.OnShown();
+
+        if (!openUpgradeTutorialTriggered)
+        {
+            openUpgradeTutorialTriggered = true;
+            tutorialManager?.TryShowTutorial("upgradeView");
+        }
     }
 
     string SettleRunGold(string summaryText)

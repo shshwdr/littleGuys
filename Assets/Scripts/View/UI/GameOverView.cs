@@ -1,16 +1,18 @@
 using System;
-using TMPro;
 using UniRx;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class GameOverView : MonoBehaviour
 {
-    GameObject overlayRoot;
-    TMP_Text titleText;
-    TMP_Text subtitleText;
-    Button continueButton;
-    TMP_Text continueButtonLabel;
+    [Header("Panels (scene-built under HUD)")]
+    [SerializeField] GameObject gameOverPanel;
+    [SerializeField] GameObject gameCompletePanel;
+
+    [Header("Continue")]
+    [SerializeField] Button gameOverContinueButton;
+    [SerializeField] Button gameCompleteContinueButton;
+
     GameModel model;
     GameBootstrap bootstrap;
     Action pendingContinue;
@@ -19,7 +21,10 @@ public class GameOverView : MonoBehaviour
     {
         model = gameModel;
         bootstrap = gameBootstrap;
-        BuildUi();
+
+        BindContinueButton(gameOverContinueButton);
+        BindContinueButton(gameCompleteContinueButton);
+        Hide();
 
         model.State
             .Subscribe(state =>
@@ -27,13 +32,11 @@ public class GameOverView : MonoBehaviour
                 switch (state)
                 {
                     case GameState.TimeOut:
-                        Show("Time Out", string.Empty, "Continue", () => bootstrap.EnterUpgradeMode(string.Empty));
-                        break;
                     case GameState.GameOver:
-                        Show("Game Over", string.Empty, "Continue", () => bootstrap.EnterUpgradeMode(string.Empty));
+                        ShowPanel(gameOverPanel, () => bootstrap.EnterUpgradeMode(string.Empty));
                         break;
                     case GameState.LevelComplete:
-                        ShowLevelComplete();
+                        ShowGameComplete();
                         break;
                     default:
                         Hide();
@@ -43,18 +46,23 @@ public class GameOverView : MonoBehaviour
             .AddTo(disposables);
     }
 
-    void ShowLevelComplete()
+    void BindContinueButton(Button button)
+    {
+        if (button == null)
+            return;
+
+        button.onClick.RemoveListener(OnContinueClicked);
+        button.onClick.AddListener(OnContinueClicked);
+    }
+
+    void ShowGameComplete()
     {
         var meta = MetaSaveService.Load();
         var nextScene = CSVLoader.GetScene(meta.CurrentScene);
 
         if (nextScene == null)
         {
-            Show(
-                "All Levels Complete!",
-                "Congratulations! You have cleared all levels.",
-                "Continue",
-                () => bootstrap.EnterUpgradeMode("All levels complete!"));
+            ShowPanel(gameCompletePanel, () => bootstrap.EnterUpgradeMode("All levels complete!"));
             return;
         }
 
@@ -62,93 +70,24 @@ public class GameOverView : MonoBehaviour
             ? $"Level {meta.CurrentScene}"
             : nextScene.name;
 
-        Show(
-            "Level Complete!",
-            $"You have entered the next level: {sceneLabel}",
-            "Continue",
-            () => bootstrap.EnterUpgradeMode($"Entered next level: {sceneLabel}"));
+        ShowPanel(gameCompletePanel, () => bootstrap.EnterUpgradeMode($"Entered next level: {sceneLabel}"));
     }
 
-    void BuildUi()
+    void ShowPanel(GameObject panel, Action onContinue)
     {
-        overlayRoot = new GameObject("ResultOverlay");
-        overlayRoot.transform.SetParent(transform, false);
-
-        var canvas = overlayRoot.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 200;
-        overlayRoot.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        overlayRoot.AddComponent<GraphicRaycaster>();
-
-        var dimGo = new GameObject("Dim");
-        dimGo.transform.SetParent(overlayRoot.transform, false);
-        var dimRect = dimGo.AddComponent<RectTransform>();
-        dimRect.anchorMin = Vector2.zero;
-        dimRect.anchorMax = Vector2.one;
-        dimRect.offsetMin = Vector2.zero;
-        dimRect.offsetMax = Vector2.zero;
-        var dimImage = dimGo.AddComponent<Image>();
-        dimImage.color = new Color(0f, 0f, 0f, 0.65f);
-        dimImage.raycastTarget = true;
-
-        titleText = WorldUiFactory.CreateText(
-            overlayRoot.transform,
-            "Title",
-            string.Empty,
-            new Vector2(0f, 60f),
-            48f,
-            TextAlignmentOptions.Center);
-        titleText.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-        titleText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-        titleText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        titleText.rectTransform.sizeDelta = new Vector2(640f, 80f);
-
-        subtitleText = WorldUiFactory.CreateText(
-            overlayRoot.transform,
-            "Subtitle",
-            string.Empty,
-            new Vector2(0f, 10f),
-            24f,
-            TextAlignmentOptions.Center);
-        subtitleText.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-        subtitleText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-        subtitleText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        subtitleText.rectTransform.sizeDelta = new Vector2(640f, 60f);
-
-        continueButton = WorldUiFactory.CreateButton(
-            overlayRoot.transform,
-            "Continue",
-            "Continue",
-            new Vector2(0f, -50f),
-            new Vector2(180f, 40f));
-        var continueRect = continueButton.GetComponent<RectTransform>();
-        continueRect.anchorMin = new Vector2(0.5f, 0.5f);
-        continueRect.anchorMax = new Vector2(0.5f, 0.5f);
-        continueRect.pivot = new Vector2(0.5f, 0.5f);
-        continueButtonLabel = continueButton.GetComponentInChildren<TMP_Text>();
-        continueButton.onClick.AddListener(OnContinueClicked);
-
         Hide();
-    }
-
-    void Show(string title, string subtitle, string buttonLabel, Action onContinue)
-    {
         pendingContinue = onContinue;
-        titleText.text = title;
-        subtitleText.text = subtitle ?? string.Empty;
-        subtitleText.gameObject.SetActive(!string.IsNullOrEmpty(subtitle));
-
-        if (continueButtonLabel != null)
-            continueButtonLabel.text = buttonLabel;
-
-        overlayRoot.SetActive(true);
+        if (panel != null)
+            panel.SetActive(true);
     }
 
     void Hide()
     {
         pendingContinue = null;
-        if (overlayRoot != null)
-            overlayRoot.SetActive(false);
+        if (gameOverPanel != null)
+            gameOverPanel.SetActive(false);
+        if (gameCompletePanel != null)
+            gameCompletePanel.SetActive(false);
     }
 
     void OnContinueClicked()

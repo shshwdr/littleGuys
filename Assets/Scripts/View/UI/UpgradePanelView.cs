@@ -20,6 +20,7 @@ public class UpgradePanelView : MonoBehaviour
     CompositeDisposable disposables;
     bool built;
     System.Action onMetaGoldChanged;
+    float scrollSensitivity = 0.35f;
 
     readonly Dictionary<string, UpgradeNodeView> nodeViews = new Dictionary<string, UpgradeNodeView>();
 
@@ -31,11 +32,16 @@ public class UpgradePanelView : MonoBehaviour
         public TMP_Text Label;
     }
 
-    public void Setup(MetaSaveData save, CompositeDisposable viewDisposables, System.Action metaGoldChanged = null)
+    public void Setup(
+        MetaSaveData save,
+        CompositeDisposable viewDisposables,
+        System.Action metaGoldChanged = null,
+        float treeScrollSensitivity = 0.35f)
     {
         metaSave = save;
         disposables = viewDisposables;
         onMetaGoldChanged = metaGoldChanged;
+        scrollSensitivity = Mathf.Max(0.01f, treeScrollSensitivity);
     }
 
     public void EnsureBuilt()
@@ -47,27 +53,20 @@ public class UpgradePanelView : MonoBehaviour
         CSVLoader.Init();
         buttonSprite = ResourceSpriteLoader.GetSquare();
 
-        var canvasGo = new GameObject("UpgradeCanvas");
-        canvasGo.transform.SetParent(transform, false);
-        var canvas = canvasGo.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 100;
-        canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        canvasGo.AddComponent<GraphicRaycaster>();
-
-        var panel = new GameObject("Panel");
-        panel.transform.SetParent(canvasGo.transform, false);
-        var panelRect = panel.AddComponent<RectTransform>();
+        // upgradeRoot 本身就是 Canvas，内容直接挂在下面。
+        var panel = new GameObject("Panel", typeof(RectTransform));
+        panel.transform.SetParent(transform, false);
+        var panelRect = (RectTransform)panel.transform;
         StretchFullScreen(panelRect);
         var bg = panel.AddComponent<Image>();
         bg.color = new Color(0.1f, 0.1f, 0.14f, 1f);
+
+        CreateTree(panel.transform);
 
         var title = CreateLabel(panel.transform, "Title", "Upgrades", new Vector2(0f, 420f), new Vector2(800f, 72f), 52f);
         title.fontStyle = FontStyles.Bold;
 
         summaryText = CreateLabel(panel.transform, "Summary", string.Empty, new Vector2(0f, 320f), new Vector2(600f, 56f), 22f);
-
-        CreateTree(panel.transform);
 
         Observable.EveryUpdate()
             .Where(_ => gameObject.activeInHierarchy && Input.GetKeyDown(KeyCode.G))
@@ -92,10 +91,10 @@ public class UpgradePanelView : MonoBehaviour
 
     void CreateTree(Transform parent)
     {
-        var scrollGo = new GameObject("UpgradeTreeScroll");
+        var scrollGo = new GameObject("UpgradeTreeScroll", typeof(RectTransform));
         scrollGo.transform.SetParent(parent, false);
-        var scrollRect = scrollGo.AddComponent<RectTransform>();
-        SetupCenterRect(scrollRect, new Vector2(0f, -30f), new Vector2(1600f, 500f));
+        var scrollRect = (RectTransform)scrollGo.transform;
+        StretchFullScreen(scrollRect);
 
         var viewportGo = new GameObject("Viewport");
         viewportGo.transform.SetParent(scrollGo.transform, false);
@@ -152,7 +151,7 @@ public class UpgradePanelView : MonoBehaviour
         }
 
         panZoom = viewportGo.AddComponent<UpgradeTreePanZoom>();
-        panZoom.Setup(treeViewport, treeRoot);
+        panZoom.Setup(treeViewport, treeRoot, scrollSensitivity);
     }
 
     Dictionary<string, Vector2> BuildLayoutPositions()

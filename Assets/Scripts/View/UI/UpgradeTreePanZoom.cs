@@ -7,16 +7,17 @@ public class UpgradeTreePanZoom : MonoBehaviour, IPointerEnterHandler, IPointerE
     RectTransform panTarget;
     float minScale = 0.4f;
     float maxScale = 2.5f;
-    float zoomSpeed = 0.12f;
+    float scrollSensitivity = 0.35f;
     bool pointerInside;
     bool dragging;
     Vector2 lastMousePosition;
     float scale = 1f;
 
-    public void Setup(RectTransform viewportRect, RectTransform target)
+    public void Setup(RectTransform viewportRect, RectTransform target, float sensitivity = 0.35f)
     {
         viewport = viewportRect;
         panTarget = target;
+        scrollSensitivity = Mathf.Max(0.01f, sensitivity);
         ResetView();
     }
 
@@ -50,7 +51,7 @@ public class UpgradeTreePanZoom : MonoBehaviour, IPointerEnterHandler, IPointerE
         if (dragging && Input.GetMouseButton(0))
         {
             Vector2 current = Input.mousePosition;
-            panTarget.anchoredPosition += current - lastMousePosition;
+            panTarget.anchoredPosition += (current - lastMousePosition) * scrollSensitivity;
             lastMousePosition = current;
         }
 
@@ -58,7 +59,7 @@ public class UpgradeTreePanZoom : MonoBehaviour, IPointerEnterHandler, IPointerE
         if (Mathf.Abs(scroll) > 0.01f && pointerInside)
         {
             float prevScale = scale;
-            scale = Mathf.Clamp(scale + scroll * zoomSpeed, minScale, maxScale);
+            scale = Mathf.Clamp(scale + scroll * scrollSensitivity, minScale, maxScale);
             if (Mathf.Approximately(prevScale, scale))
                 return;
 

@@ -108,8 +108,11 @@ public class TutorialInfo
     public string click;
     public string higherSort;
     public string logic;
+    public string logicAfter;
     public float timePass;
     public int isEnd;
+    public string group;
+    public string finishGroup;
 }
 
 public static class CSVLoader

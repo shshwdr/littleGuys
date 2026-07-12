@@ -20,6 +20,7 @@ public class TutorialManager : MonoBehaviour
     readonly List<Canvas> activeHighlightCanvases = new List<Canvas>();
     readonly List<RaycastResult> raycastResults = new List<RaycastResult>();
     readonly List<Selectable> disabledSelectables = new List<Selectable>();
+    readonly HashSet<string> finishedGroups = new HashSet<string>();
 
     Coroutine runningRoutine;
     Canvas allowedClickCanvas;
@@ -35,8 +36,26 @@ public class TutorialManager : MonoBehaviour
 
     public void TryShowTutorial(string identifier)
     {
-        if (!enableTutorial || IsTutorialCompleted)
+        if (!enableTutorial)
         {
+            Debug.LogWarning($"Tutorial skipped '{identifier}': enableTutorial is false.");
+            HideTutorialView();
+            return;
+        }
+
+        if (IsTutorialCompleted)
+        {
+            Debug.LogWarning($"Tutorial skipped '{identifier}': TutorialCompleted is true in save. Press S to reset meta save.");
+            HideTutorialView();
+            return;
+        }
+
+        // 每次检查前从存档同步，避免 GameBootstrap.Awake 早于本组件 Awake 时读到空列表。
+        ReloadFinishedGroups();
+        CSVLoader.Init();
+        if (IsTutorialGroupFinished(identifier))
+        {
+            Debug.Log($"Tutorial skipped '{identifier}': group already finished.");
             HideTutorialView();
             return;
         }
@@ -52,7 +71,26 @@ public class TutorialManager : MonoBehaviour
             return;
         }
 
+        ReloadFinishedGroups();
         CSVLoader.Init();
+
+        if (IsTutorialGroupFinished(identifier))
+        {
+            HideTutorialView();
+            return;
+        }
+
+        var rows = CSVLoader.GetTutorialRows(identifier);
+        if (rows.Count == 0)
+        {
+            Debug.LogWarning($"Tutorial '{identifier}' has 0 rows in tutorial.csv.");
+            HideTutorialView();
+            return;
+        }
+
+        Debug.Log($"Tutorial show '{identifier}' ({rows.Count} rows).");
+
+        EnsureAllTutorialTargetsRegistered();
 
         if (runningRoutine != null)
             StopCoroutine(runningRoutine);
@@ -61,6 +99,52 @@ public class TutorialManager : MonoBehaviour
         resumeTimeScale = Time.timeScale > 0f ? Time.timeScale : 1f;
         currentTutorialId = identifier;
         runningRoutine = StartCoroutine(PlayTutorial(identifier));
+    }
+
+    bool IsTutorialGroupFinished(string identifier)
+    {
+        var rows = CSVLoader.GetTutorialRows(identifier);
+        for (int i = 0; i < rows.Count; i++)
+        {
+            string group = rows[i].group;
+            if (string.IsNullOrEmpty(group))
+                continue;
+
+            if (finishedGroups.Contains(group))
+                return true;
+        }
+
+        return false;
+    }
+
+    void MarkGroupFinished(string group)
+    {
+        if (string.IsNullOrEmpty(group))
+            return;
+
+        ReloadFinishedGroups();
+        if (!finishedGroups.Add(group))
+            return;
+
+        var meta = MetaSaveService.Load();
+        var list = new List<string>(finishedGroups);
+        meta.FinishedTutorialGroups = list.ToArray();
+        MetaSaveService.Save(meta);
+        Debug.Log($"Tutorial finishGroup recorded: '{group}'. Finished=[{string.Join(",", finishedGroups)}]");
+    }
+
+    void ReloadFinishedGroups()
+    {
+        finishedGroups.Clear();
+        var meta = MetaSaveService.Load();
+        if (meta.FinishedTutorialGroups == null)
+            return;
+
+        foreach (var group in meta.FinishedTutorialGroups)
+        {
+            if (!string.IsNullOrEmpty(group))
+                finishedGroups.Add(group);
+        }
     }
 
     void Update()
@@ -80,12 +164,20 @@ public class TutorialManager : MonoBehaviour
                 return;
 
             PropagatePointerClick(hitObject);
+            CaptureResumeTimeScaleFromCurrent();
             waitingForClick = false;
             return;
         }
 
         PropagateTopRaycastClick(results);
+        CaptureResumeTimeScaleFromCurrent();
         waitingForClick = false;
+    }
+
+    void CaptureResumeTimeScaleFromCurrent()
+    {
+        if (Time.timeScale > 0f)
+            resumeTimeScale = Time.timeScale;
     }
 
     void LateUpdate()
@@ -118,10 +210,13 @@ public class TutorialManager : MonoBehaviour
 
             waitingForLineInput = false;
             EndLine();
+            ExecuteLogic(row.logicAfter, true);
+            if (!string.IsNullOrEmpty(row.finishGroup))
+                MarkGroupFinished(row.finishGroup);
 
             if (row.isEnd != 0)
             {
-                if (currentTutorialId == "finishedServe")
+                if (currentTutorialId == "upgradeView")
                     MarkTutorialCompleted();
                 break;
             }
@@ -153,7 +248,12 @@ public class TutorialManager : MonoBehaviour
 
         ExecuteLogic(row.logic, true);
 
+        EnsureAllTutorialTargetsRegistered();
+
         Canvas clickCanvas = ResolveCanvas(row.click);
+        if (!string.IsNullOrEmpty(row.click) && clickCanvas == null)
+            Debug.LogWarning($"Tutorial click target '{row.click}' was not found/registered.");
+
         Canvas higherSortCanvas = ResolveCanvas(row.higherSort);
         SetAllowedClickCanvas(clickCanvas);
 
@@ -373,9 +473,6 @@ public class TutorialManager : MonoBehaviour
         if (canvas == null)
             return;
 
-        if (canvasByIdentifier.ContainsKey(target.Identifier))
-            return;
-
         canvasByIdentifier[target.Identifier] = canvas;
     }
 
@@ -387,6 +484,13 @@ public class TutorialManager : MonoBehaviour
         if (canvasByIdentifier.TryGetValue(target.Identifier, out var canvas)
             && canvas == target.Canvas)
             canvasByIdentifier.Remove(target.Identifier);
+    }
+
+    void EnsureAllTutorialTargetsRegistered()
+    {
+        var targets = FindObjectsOfType<TutorialGameobject>(true);
+        for (int i = 0; i < targets.Length; i++)
+            RegisterTutorialGameobject(targets[i]);
     }
 
     Canvas ResolveCanvas(string identifier)

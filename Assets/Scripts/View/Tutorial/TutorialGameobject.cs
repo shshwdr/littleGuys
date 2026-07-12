@@ -24,10 +24,17 @@ public class TutorialGameobject : MonoBehaviour
         EnsureCanvas();
     }
 
-    void Start()
+    void OnEnable()
     {
+        // 必须在 Start 之前注册：GameBootstrap 会在 Awake 里触发教程。
         manager = FindObjectOfType<TutorialManager>();
         manager?.RegisterTutorialGameobject(this);
+    }
+
+    void OnDisable()
+    {
+        if (manager != null)
+            manager.UnregisterTutorialGameobject(this);
     }
 
     void OnDestroy()
