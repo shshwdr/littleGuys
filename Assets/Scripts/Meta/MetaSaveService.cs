@@ -4,29 +4,41 @@ public static class MetaSaveService
 {
     const string SaveKey = "MetaSaveData";
 
+    // 全局共用同一份实例，避免多处 Load 出副本后互相 Save 覆盖（例如升级购买盖掉教程进度）。
+    static MetaSaveData cached;
+
     public static MetaSaveData Load()
     {
         EnsureCsvLoaded();
 
+        if (cached != null)
+            return cached;
+
         if (!PlayerPrefs.HasKey(SaveKey))
-            return MetaSaveData.CreateDefault();
+        {
+            cached = MetaSaveData.CreateDefault();
+            return cached;
+        }
 
         string json = PlayerPrefs.GetString(SaveKey);
         var data = JsonUtility.FromJson<MetaSaveData>(json);
-        if (data == null)
-            return MetaSaveData.CreateDefault();
-
-        return data;
+        cached = data ?? MetaSaveData.CreateDefault();
+        return cached;
     }
 
     public static void Save(MetaSaveData data)
     {
+        if (data == null)
+            return;
+
+        cached = data;
         PlayerPrefs.SetString(SaveKey, JsonUtility.ToJson(data));
         PlayerPrefs.Save();
     }
 
     public static void Reset()
     {
+        cached = null;
         PlayerPrefs.DeleteKey(SaveKey);
         PlayerPrefs.Save();
     }

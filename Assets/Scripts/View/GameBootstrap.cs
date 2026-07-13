@@ -632,7 +632,6 @@ public class GameBootstrap : MonoBehaviour
         {
             customerHand = EnsureCustomerHandFor(customer?.CustomerTypeId ?? "normal");
             PlayHandPickupAt(
-                workerView != null ? workerView.transform : null,
                 pickupPosition,
                 () =>
                 {
@@ -656,24 +655,16 @@ public class GameBootstrap : MonoBehaviour
 
         workerViews.TryGetValue(worker.Id, out var workerView);
         string identifier = worker.SacrificeTarget?.CustomerTypeId ?? "normal";
-        Vector3 pickupPosition = new Vector3(worker.Position.x, worker.Position.y, 0f);
+        Vector3 pickupPosition = workerView != null
+            ? workerView.WorldPosition
+            : new Vector3(worker.Position.x, worker.Position.y, 0f);
 
         QueueHandDoorAction(identifier, closeDoor =>
         {
             customerHand = EnsureCustomerHandFor(identifier);
             PlayHandPickupAt(
-                workerView != null ? workerView.transform : null,
                 pickupPosition,
-                () =>
-                {
-                    sacrificeService.FinalizeSacrifice(worker);
-                    if (workerViews.TryGetValue(worker.Id, out var view))
-                    {
-                        workerViews.Remove(worker.Id);
-                        if (view != null)
-                            Destroy(view.gameObject);
-                    }
-                },
+                () => sacrificeService.FinalizeSacrifice(worker),
                 closeDoor);
         });
     }
@@ -722,11 +713,11 @@ public class GameBootstrap : MonoBehaviour
             onDoorOpened?.Invoke(null);
     }
 
-    void PlayHandPickupAt(Transform item, Vector3 pickupPosition, Action onDelivered, Action closeDoor)
+    void PlayHandPickupAt(Vector3 pickupPosition, Action onGrabbed, Action closeDoor)
     {
         if (customerHand == null)
         {
-            onDelivered?.Invoke();
+            onGrabbed?.Invoke();
             closeDoor?.Invoke();
             return;
         }
@@ -736,16 +727,12 @@ public class GameBootstrap : MonoBehaviour
             onBeforeExtend: () => customerHand.SetHandOpen(true),
             onAtTarget: () =>
             {
-                if (item != null)
-                {
-                    customerHand.SetHandOpen(false);
-                    customerHand.AttachToGrab(item);
-                }
+                customerHand.SetHandOpen(false);
+                onGrabbed?.Invoke();
             },
             onComplete: () =>
             {
                 customerHand.SetHandOpen(true);
-                onDelivered?.Invoke();
                 closeDoor?.Invoke();
             });
     }
