@@ -56,6 +56,7 @@ public class CustomerEffectService
         worker.State = WorkerState.BeingEaten;
         worker.SacrificeTarget = customer;
         EatMinionPerformanceRequested?.Invoke(customer, worker);
+        
     }
 
     public void OnEatAnimationComplete(CustomerData customer)

@@ -322,6 +322,7 @@ public class UpgradePanelView : MonoBehaviour
 
         RefreshAll();
         onMetaGoldChanged?.Invoke();
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/UI/sfx_ui_unlock_skill");
     }
 
     public void ReloadSave()

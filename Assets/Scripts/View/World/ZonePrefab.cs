@@ -207,6 +207,8 @@ public class ZonePrefab : MonoBehaviour
             case ZoneType.Chop: return "event:/SFX/Machines/sfx_chop_loop";
             case ZoneType.Cook: return "event:/SFX/Machines/sfx_mixer_loop";
             case ZoneType.Plate: return "event:/SFX/Machines/sfx_plate_loop";
+            case ZoneType.Wok: return "event:/SFX/Machines/sfx_processor_loop";
+            case ZoneType.Splitter: return "event:/SFX/Machines/sfx_split_loop";
             default: return null;
         }
     }

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using UnityEngine;
+using FMODUnity;
 
 public class CustomerSacrificeService
 {
@@ -69,6 +70,8 @@ public class CustomerSacrificeService
         worker.State = WorkerState.WalkingToZone;
         RefreshSacrificeQueue();
         model.NotifyWorkerAssignmentChanged();
+
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/UI/sfx_ui_plus_buttom");
         return true;
     }
 
@@ -121,6 +124,7 @@ public class CustomerSacrificeService
             worker.State = WorkerState.Sacrificing;
             worker.Position = target;
             SacrificeReadyForPickup?.Invoke(worker);
+            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/Costumers/sfx_costumer_eats_2");
         }
     }
 

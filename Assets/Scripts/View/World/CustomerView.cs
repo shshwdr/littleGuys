@@ -70,7 +70,7 @@ public class CustomerView : MonoBehaviour
         {
             sacrificeButton.OnClickAsObservable()
                 .Subscribe(_ => sacrificeService.TryAssignWorker(customer))
-                .AddTo(viewDisposables);
+                .AddTo(viewDisposables);            
         }
 
         model.WorkerAssignmentChanged
