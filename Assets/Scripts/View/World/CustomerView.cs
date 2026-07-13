@@ -7,6 +7,7 @@ using UnityEngine.UI;
 public class CustomerView : MonoBehaviour
 {
     static readonly Color NormalTextColor = new Color32(0xA0, 0x38, 0x3C, 255);
+    static readonly Vector2 DefaultCakeSize = new Vector2(30f, 30f);
 
     [Header("Visual")]
     [SerializeField] Image bodyImage;
@@ -19,6 +20,9 @@ public class CustomerView : MonoBehaviour
     [Header("UI")]
     [SerializeField] Image patienceFill;
     [SerializeField] Image effectFill;
+    [SerializeField] Transform cakeParent;
+    [SerializeField] Sprite cakeEmpty;
+    [SerializeField] Sprite cakeFull;
     [SerializeField] TMP_Text orderText;
     [SerializeField] TMP_Text descText;
     [SerializeField] Button sacrificeButton;
@@ -29,6 +33,8 @@ public class CustomerView : MonoBehaviour
     readonly CompositeDisposable viewDisposables = new CompositeDisposable();
     Vector2 currentTarget;
     Tween moveTween;
+    int lastDisplayedSatiety = -1;
+    int lastRequiredSatiety = -1;
 
     public void Setup(
         CustomerData data,
@@ -49,6 +55,8 @@ public class CustomerView : MonoBehaviour
         EnsureBodyRenderer();
         EnsureUi();
         ApplyCustomerStyle();
+        RefreshDescText();
+        RefreshCakeProgress(force: true);
 
         moveTween?.Kill();
         if (animateFromEntry)
@@ -57,12 +65,6 @@ public class CustomerView : MonoBehaviour
                 .DOMove(new Vector3(targetPosition.x, targetPosition.y, 0f), 0.6f)
                 .SetEase(Ease.OutQuad);
         }
-
-        if (orderText != null)
-            orderText.text = customer.OrderLabel;
-
-        if (descText != null)
-            descText.text = customer.Name;
 
         if (sacrificeButton != null)
         {
@@ -113,10 +115,103 @@ public class CustomerView : MonoBehaviour
             speedImage.SetActive(!isNormal);
 
         Color textColor = isBoss ? Color.black : NormalTextColor;
-        if (orderText != null)
-            orderText.color = textColor;
         if (descText != null)
             descText.color = textColor;
+    }
+
+    void RefreshDescText()
+    {
+        if (descText == null || customer == null)
+            return;
+
+        var info = CSVLoader.GetCustomer(customer.CustomerTypeId);
+        string desc = info != null ? info.desc : string.Empty;
+        if (!string.IsNullOrEmpty(desc) && desc.Contains("{0}") && info != null)
+            desc = string.Format(desc, info.value);
+
+        descText.text = desc ?? string.Empty;
+    }
+
+    void RefreshCakeProgress(bool force = false)
+    {
+        if (customer == null || cakeParent == null)
+            return;
+
+        int required = Mathf.Max(0, customer.RequiredSatiety);
+        int filled = Mathf.Clamp(customer.ReceivedSatiety, 0, required);
+        if (!force && filled == lastDisplayedSatiety && required == lastRequiredSatiety)
+            return;
+
+        lastDisplayedSatiety = filled;
+        lastRequiredSatiety = required;
+
+        EnsureCakeIcons(required);
+
+        for (int i = 0; i < cakeParent.childCount; i++)
+        {
+            Transform child = cakeParent.GetChild(i);
+            bool visible = i < required;
+            child.gameObject.SetActive(visible);
+            if (!visible)
+                continue;
+
+            var image = child.GetComponent<Image>();
+            if (image == null)
+                continue;
+
+            if (cakeEmpty != null && cakeFull != null)
+                image.sprite = i < filled ? cakeFull : cakeEmpty;
+        }
+    }
+
+    void EnsureCakeIcons(int required)
+    {
+        while (cakeParent.childCount < required)
+            CreateCakeIcon(cakeParent);
+    }
+
+    Image CreateCakeIcon(Transform parent)
+    {
+        GameObject source = null;
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            var child = parent.GetChild(i).gameObject;
+            if (child.GetComponent<Image>() != null)
+            {
+                source = child;
+                break;
+            }
+        }
+
+        if (source != null)
+        {
+            var clone = Instantiate(source, parent);
+            clone.name = "Cake";
+            clone.SetActive(true);
+            var clonedImage = clone.GetComponent<Image>();
+            if (clonedImage != null)
+            {
+                clonedImage.raycastTarget = false;
+                if (cakeEmpty != null)
+                    clonedImage.sprite = cakeEmpty;
+            }
+
+            return clonedImage;
+        }
+
+        var go = new GameObject("Cake");
+        go.transform.SetParent(parent, false);
+
+        var rect = go.AddComponent<RectTransform>();
+        rect.sizeDelta = DefaultCakeSize;
+
+        var image = go.AddComponent<Image>();
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        if (cakeEmpty != null)
+            image.sprite = cakeEmpty;
+
+        return image;
     }
 
     void EnsureBodyImage()
@@ -146,15 +241,22 @@ public class CustomerView : MonoBehaviour
     void CreateDefaultUi()
     {
         var topCanvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, 0.95f, 0f), new Vector2(260f, 150f));
-        descText = WorldUiFactory.CreateText(topCanvas.transform, "Desc", customer.Name, new Vector2(0f, 52f), 18f, TextAlignmentOptions.Center);
+        descText = WorldUiFactory.CreateText(topCanvas.transform, "Desc", string.Empty, new Vector2(0f, 52f), 18f, TextAlignmentOptions.Center);
         descText.rectTransform.sizeDelta = new Vector2(240f, 48f);
-        orderText = WorldUiFactory.CreateText(topCanvas.transform, "Order", customer.OrderLabel, new Vector2(0f, 18f), 28f, TextAlignmentOptions.Center);
+
+        var cakeGo = new GameObject("Cakes");
+        cakeGo.transform.SetParent(topCanvas.transform, false);
+        var cakeRect = cakeGo.AddComponent<RectTransform>();
+        cakeRect.anchoredPosition = new Vector2(0f, 18f);
+        cakeRect.sizeDelta = new Vector2(200f, 40f);
+        cakeParent = cakeRect;
+
         patienceFill = WorldUiFactory.CreateFillBar(topCanvas.transform, "Patience", new Vector2(0f, -18f), new Vector2(180f, 20f), new Color(0.2f, 0.8f, 0.3f));
         effectFill = WorldUiFactory.CreateFillBar(topCanvas.transform, "Effect", new Vector2(0f, -46f), new Vector2(180f, 14f), new Color(0.95f, 0.35f, 0.25f, 1f));
         effectFill.gameObject.transform.parent.gameObject.SetActive(customer.Effect == "eatMinion");
 
         var bottomCanvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, -1.05f, 0f), new Vector2(320f, 80f));
-        sacrificeButton = WorldUiFactory.CreateButton(bottomCanvas.transform, "Sacrifice", "Sacrifice", Vector2.zero, new Vector2(150f, 44f));
+        sacrificeButton = WorldUiFactory.CreateButton(bottomCanvas.transform, "Sacrifice", "sacrifice", Vector2.zero, new Vector2(150f, 44f));
         EnsureSacrificeButtonVisible();
     }
 
@@ -167,18 +269,28 @@ public class CustomerView : MonoBehaviour
         }
 
         HideLegacyAssignUi();
+        HideOrderText();
         EnsureDescText();
         EnsureSacrificeButton();
         EnsureEffectBar();
     }
 
+    void HideOrderText()
+    {
+        if (orderText != null)
+            orderText.gameObject.SetActive(false);
+    }
+
     void EnsureDescText()
     {
-        if (descText != null || orderText == null)
+        if (descText != null)
             return;
 
-        var parent = orderText.transform.parent;
-        descText = WorldUiFactory.CreateText(parent, "Desc", customer.Name, new Vector2(0f, 52f), 18f, TextAlignmentOptions.Center);
+        Transform parent = cakeParent != null
+            ? cakeParent.parent
+            : transform;
+
+        descText = WorldUiFactory.CreateText(parent, "Desc", string.Empty, new Vector2(0f, 52f), 18f, TextAlignmentOptions.Center);
         descText.rectTransform.sizeDelta = new Vector2(240f, 48f);
     }
 
@@ -190,7 +302,11 @@ public class CustomerView : MonoBehaviour
         Canvas buttonCanvas = null;
         foreach (var canvas in GetComponentsInChildren<Canvas>(true))
         {
-            if (canvas == null || canvas.transform == orderText?.transform.parent)
+            if (canvas == null)
+                continue;
+
+            // fullBK 自己带 Canvas，不能把按钮挂上去。
+            if (canvas.gameObject.name == "fullBK")
                 continue;
 
             buttonCanvas = canvas;
@@ -200,7 +316,7 @@ public class CustomerView : MonoBehaviour
         if (buttonCanvas == null)
             buttonCanvas = WorldUiFactory.CreateWorldCanvas(transform, new Vector3(0f, -1.05f, 0f), new Vector2(320f, 80f));
 
-        sacrificeButton = WorldUiFactory.CreateButton(buttonCanvas.transform, "Sacrifice", "Sacrifice", Vector2.zero, new Vector2(150f, 44f));
+        sacrificeButton = WorldUiFactory.CreateButton(buttonCanvas.transform, "Sacrifice", "sacrifice", Vector2.zero, new Vector2(150f, 44f));
         EnsureSacrificeButtonVisible();
     }
 
@@ -319,8 +435,15 @@ public class CustomerView : MonoBehaviour
         if (patienceFill != null)
             patienceFill.transform.parent.parent.gameObject.SetActive(visible);
 
-        if (orderText != null)
+        if (cakeParent != null && cakeParent.parent != null)
+            cakeParent.parent.gameObject.SetActive(visible);
+        else if (cakeParent != null)
+            cakeParent.gameObject.SetActive(visible);
+        else if (orderText != null)
             orderText.transform.parent.gameObject.SetActive(visible);
+
+        if (descText != null)
+            descText.gameObject.SetActive(visible);
 
         if (sacrificeButton != null)
             sacrificeButton.transform.parent.gameObject.SetActive(visible);
@@ -337,12 +460,7 @@ public class CustomerView : MonoBehaviour
         if (effectFill != null && customer.Effect == "eatMinion")
             effectFill.fillAmount = customer.EffectProgress.Value;
 
-        if (orderText != null)
-            orderText.text = customer.OrderLabel;
-
-        if (descText != null)
-            descText.text = customer.Name;
-
+        RefreshCakeProgress();
         RefreshSacrificeControls();
     }
 
