@@ -5,18 +5,20 @@ public class UpgradeTreePanZoom : MonoBehaviour, IPointerEnterHandler, IPointerE
 {
     RectTransform viewport;
     RectTransform panTarget;
+    Canvas canvas;
     float minScale = 0.4f;
     float maxScale = 2.5f;
     float scrollSensitivity = 0.35f;
     bool pointerInside;
     bool dragging;
-    Vector2 lastMousePosition;
+    Vector2 lastLocalPoint;
     float scale = 1f;
 
     public void Setup(RectTransform viewportRect, RectTransform target, float sensitivity = 0.35f)
     {
         viewport = viewportRect;
         panTarget = target;
+        canvas = viewport != null ? viewport.GetComponentInParent<Canvas>() : null;
         scrollSensitivity = Mathf.Max(0.01f, sensitivity);
         ResetView();
     }
@@ -41,8 +43,8 @@ public class UpgradeTreePanZoom : MonoBehaviour, IPointerEnterHandler, IPointerE
 
         if (Input.GetMouseButtonDown(0) && pointerInside && !IsPointerOverButton())
         {
-            dragging = true;
-            lastMousePosition = Input.mousePosition;
+            if (TryGetLocalPoint(Input.mousePosition, out lastLocalPoint))
+                dragging = true;
         }
 
         if (Input.GetMouseButtonUp(0))
@@ -50,9 +52,11 @@ public class UpgradeTreePanZoom : MonoBehaviour, IPointerEnterHandler, IPointerE
 
         if (dragging && Input.GetMouseButton(0))
         {
-            Vector2 current = Input.mousePosition;
-            panTarget.anchoredPosition += (current - lastMousePosition) * scrollSensitivity;
-            lastMousePosition = current;
+            if (TryGetLocalPoint(Input.mousePosition, out var current))
+            {
+                panTarget.anchoredPosition += current - lastLocalPoint;
+                lastLocalPoint = current;
+            }
         }
 
         float scroll = Input.mouseScrollDelta.y;
@@ -69,17 +73,31 @@ public class UpgradeTreePanZoom : MonoBehaviour, IPointerEnterHandler, IPointerE
 
     void ApplyZoom(float prevScale)
     {
-        Vector2 localPoint;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            viewport,
-            Input.mousePosition,
-            null,
-            out localPoint);
+        if (!TryGetLocalPoint(Input.mousePosition, out var localPoint))
+            return;
 
         Vector2 focusOffset = localPoint - panTarget.anchoredPosition;
         float scaleRatio = scale / prevScale;
         panTarget.anchoredPosition -= focusOffset * (scaleRatio - 1f);
         panTarget.localScale = Vector3.one * scale;
+    }
+
+    bool TryGetLocalPoint(Vector2 screenPoint, out Vector2 localPoint)
+    {
+        return RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            viewport,
+            screenPoint,
+            GetEventCamera(),
+            out localPoint);
+    }
+
+    Camera GetEventCamera()
+    {
+        if (canvas == null)
+            canvas = viewport != null ? viewport.GetComponentInParent<Canvas>() : null;
+        if (canvas == null || canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            return null;
+        return canvas.worldCamera != null ? canvas.worldCamera : Camera.main;
     }
 
     bool IsPointerOverButton()

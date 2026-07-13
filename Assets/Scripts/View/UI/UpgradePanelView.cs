@@ -6,13 +6,14 @@ using UnityEngine.UI;
 
 public class UpgradePanelView : MonoBehaviour
 {
+    const string UpgradeCellPrefabPath = "prefab/upgradeCell";
     const float DebugGoldAmount = 10f;
-    const float ButtonSize = 80f;
-    const float LineDistance = ButtonSize * 2f;
+    const float DefaultButtonSize = 160f;
 
     MetaSaveData metaSave;
     TMP_Text summaryText;
     Sprite buttonSprite;
+    GameObject upgradeCellPrefab;
     RectTransform treeRoot;
     RectTransform lineRoot;
     RectTransform treeViewport;
@@ -21,6 +22,7 @@ public class UpgradePanelView : MonoBehaviour
     bool built;
     System.Action onMetaGoldChanged;
     float scrollSensitivity = 0.35f;
+    float buttonSize = DefaultButtonSize;
 
     readonly Dictionary<string, UpgradeNodeView> nodeViews = new Dictionary<string, UpgradeNodeView>();
 
@@ -52,6 +54,19 @@ public class UpgradePanelView : MonoBehaviour
         built = true;
         CSVLoader.Init();
         buttonSprite = ResourceSpriteLoader.GetSquare();
+        upgradeCellPrefab = Resources.Load<GameObject>(UpgradeCellPrefabPath);
+        if (upgradeCellPrefab == null)
+            Debug.LogError($"UpgradePanelView: prefab not found at Resources/{UpgradeCellPrefabPath}.");
+        else
+        {
+            var prefabRect = upgradeCellPrefab.GetComponent<RectTransform>();
+            if (prefabRect != null)
+            {
+                float size = Mathf.Max(prefabRect.sizeDelta.x, prefabRect.sizeDelta.y);
+                if (size > 0.01f)
+                    buttonSize = size;
+            }
+        }
 
         // upgradeRoot 本身就是 Canvas，内容直接挂在下面。
         var panel = new GameObject("Panel", typeof(RectTransform));
@@ -156,7 +171,7 @@ public class UpgradePanelView : MonoBehaviour
 
     Dictionary<string, Vector2> BuildLayoutPositions()
     {
-        UpgradeTreeLayout.TryBuild(LineDistance, out var positions);
+        UpgradeTreeLayout.TryBuild(buttonSize * 2f, out var positions);
         return positions;
     }
 
@@ -177,26 +192,44 @@ public class UpgradePanelView : MonoBehaviour
         if (!info.IsVisible())
             return;
 
-        var buttonGo = new GameObject("Upgrade_" + identifier);
-        buttonGo.transform.SetParent(treeRoot, false);
-        var buttonRect = buttonGo.AddComponent<RectTransform>();
-        SetupCenterRect(buttonRect, position, new Vector2(ButtonSize, ButtonSize));
+        if (upgradeCellPrefab == null)
+        {
+            Debug.LogError($"UpgradePanelView: failed to draw upgrade '{identifier}' because upgradeCell prefab is missing.");
+            return;
+        }
 
-        var image = buttonGo.AddComponent<Image>();
-        image.sprite = buttonSprite;
-        image.type = Image.Type.Simple;
+        var buttonGo = Instantiate(upgradeCellPrefab, treeRoot);
+        buttonGo.name = "Upgrade_" + identifier;
 
-        var button = buttonGo.AddComponent<Button>();
-        string capturedId = identifier;
-        button.onClick.AddListener(() => OnUpgradeClicked(capturedId));
+        var buttonRect = buttonGo.GetComponent<RectTransform>();
+        if (buttonRect == null)
+            buttonRect = buttonGo.AddComponent<RectTransform>();
 
-        var label = CreateLabel(
-            buttonGo.transform,
-            "Label",
-            BuildUpgradeLabel(info),
-            Vector2.zero,
-            new Vector2(ButtonSize - 8f, ButtonSize - 8f),
-            11f);
+        Vector2 size = buttonRect.sizeDelta;
+        if (size.sqrMagnitude < 0.01f)
+            size = new Vector2(buttonSize, buttonSize);
+        SetupCenterRect(buttonRect, position, size);
+
+        var button = buttonGo.GetComponent<Button>();
+        if (button == null)
+            button = buttonGo.GetComponentInChildren<Button>(true);
+
+        Image image = null;
+        if (button != null && button.targetGraphic is Image targetImage)
+            image = targetImage;
+        if (image == null)
+            image = buttonGo.GetComponentInChildren<Image>(true);
+
+        var label = buttonGo.GetComponentInChildren<TMP_Text>(true);
+        if (label != null)
+            label.text = BuildUpgradeLabel(info);
+
+        if (button != null)
+        {
+            string capturedId = identifier;
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(() => OnUpgradeClicked(capturedId));
+        }
 
         nodeViews[identifier] = new UpgradeNodeView
         {
@@ -313,11 +346,22 @@ public class UpgradePanelView : MonoBehaviour
         bool maxed = metaSave.GetLevel(node.Id) >= info.maxLevel;
         bool locked = MetaSaveService.IsLocked(metaSave, info);
 
-        node.Label.text = BuildUpgradeLabel(info);
-        node.Button.interactable = canBuy;
+        if (node.Label != null)
+        {
+            node.Label.text = BuildUpgradeLabel(info);
+            node.Label.color = maxed
+                ? new Color(0.45f, 0.45f, 0.48f, 1f)
+                : Color.white;
+        }
+
+        if (node.Button != null)
+            node.Button.interactable = canBuy;
+
+        if (node.Image == null)
+            return;
 
         if (maxed)
-            node.Image.color = new Color(0.35f, 0.35f, 0.35f, 1f);
+            node.Image.color = new Color(0.12f, 0.12f, 0.14f, 1f);
         else if (locked)
             node.Image.color = new Color(0.22f, 0.22f, 0.22f, 1f);
         else if (canBuy)

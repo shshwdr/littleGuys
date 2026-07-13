@@ -4,4 +4,5 @@ eatPlateGuy,"when eat dishes, eat a guy",,,1
 eatOtherPlateGuy,"when others eat dishes, eat a guy",,,1
 makeEveryImpatient,make patience of everyone speed up 30%,,,1
 shake,shake the box,,,1
-eatMinion,kill a minion every {0} seconds,eatMinion,12,1
+eatMinion,Kill a minion every {0} seconds,eatMinion,12,1
+speed,Less Patience,,,
