@@ -8,6 +8,8 @@ public class GameOverView : MonoBehaviour
     [Header("Panels (scene-built under HUD)")]
     [SerializeField] GameObject gameOverPanel;
     [SerializeField] GameObject gameCompletePanel;
+    [SerializeField] GameObject timeout;
+    [SerializeField] GameObject tryAgain;
 
     [Header("Continue")]
     [SerializeField] Button gameOverContinueButton;
@@ -33,10 +35,10 @@ public class GameOverView : MonoBehaviour
                 {
                     case GameState.TimeOut:
                         FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/UI/sfx_ui_time_out");
-                        ShowPanel(gameOverPanel, () => bootstrap.EnterUpgradeMode(string.Empty));
+                        ShowGameOver(showTimeout: true);
                         break;
                     case GameState.GameOver:
-                        ShowPanel(gameOverPanel, () => bootstrap.EnterUpgradeMode(string.Empty));
+                        ShowGameOver(showTimeout: false);
                         break;
                     case GameState.LevelComplete:
                         ShowGameComplete();
@@ -56,6 +58,12 @@ public class GameOverView : MonoBehaviour
 
         button.onClick.RemoveListener(OnContinueClicked);
         button.onClick.AddListener(OnContinueClicked);
+    }
+
+    void ShowGameOver(bool showTimeout)
+    {
+        ShowPanel(gameOverPanel, () => bootstrap.EnterUpgradeMode(string.Empty));
+        SetReasonVisuals(showTimeout);
     }
 
     void ShowGameComplete()
@@ -84,6 +92,14 @@ public class GameOverView : MonoBehaviour
             panel.SetActive(true);
     }
 
+    void SetReasonVisuals(bool showTimeout)
+    {
+        if (timeout != null)
+            timeout.SetActive(showTimeout);
+        if (tryAgain != null)
+            tryAgain.SetActive(!showTimeout);
+    }
+
     void Hide()
     {
         pendingContinue = null;
@@ -91,6 +107,10 @@ public class GameOverView : MonoBehaviour
             gameOverPanel.SetActive(false);
         if (gameCompletePanel != null)
             gameCompletePanel.SetActive(false);
+        if (timeout != null)
+            timeout.SetActive(false);
+        if (tryAgain != null)
+            tryAgain.SetActive(false);
     }
 
     void OnContinueClicked()

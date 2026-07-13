@@ -1,8 +1,8 @@
-﻿identifier,desc,effect,value,base
-normal,,,,1
-eatPlateGuy,"when eat dishes, eat a guy",,,1
-eatOtherPlateGuy,"when others eat dishes, eat a guy",,,1
-makeEveryImpatient,make patience of everyone speed up 30%,,,1
-shake,shake the box,,,1
-eatMinion,Kill a minion every {0} seconds,eatMinion,12,1
-speed,Less Patience,,,
+﻿identifier,desc,patience,effect,value,base
+normal,,100,,,1
+eatPlateGuy,"when eat dishes, eat a guy",100,,,1
+eatOtherPlateGuy,"when others eat dishes, eat a guy",100,,,1
+makeEveryImpatient,make patience of everyone speed up 30%,100,,,1
+shake,shake the box,100,,,1
+eatMinion,Kill a minion every {0} seconds,100,eatMinion,12,1
+speed,Less Patience,60,,,1

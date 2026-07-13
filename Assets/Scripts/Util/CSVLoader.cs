@@ -53,6 +53,7 @@ public class CustomerInfo
     public string effect;
     public int value;
     public int @base;
+    public float patience;
 
     public string GetDisplayText()
     {

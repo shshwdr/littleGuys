@@ -204,7 +204,9 @@ public class CustomerSpawnService
             SpawnSlotIndex = spawnSlot,
             RequiredSatiety = requiredFull,
             ReceivedSatiety = 0,
-            MaxPatience = model.Config.customerMaxPatience
+            MaxPatience = customerInfo != null && customerInfo.patience > 0f
+                ? customerInfo.patience
+                : model.Config.customerMaxPatience
         };
         customer.Patience.Value = customer.MaxPatience;
         customer.IsAwaitingEntrance = true;
