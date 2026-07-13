@@ -394,6 +394,13 @@ public class GameBootstrap : MonoBehaviour
     void OnHudPrimaryClicked()
     {
         FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/UI/sfx_ui_restart_buttom");
+        
+
+        if (gameplayMusicInstance.isValid())
+        {
+            gameplayMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
+            gameplayMusicInstance.release();
+        }
 
         if (upgradeViewRoot != null && upgradeViewRoot.activeSelf)
         {
@@ -403,6 +410,7 @@ public class GameBootstrap : MonoBehaviour
 
         if (model.State.Value == GameState.Playing)
             model.State.Value = GameState.GameOver;
+
     }
 
     void EnsureViewRoots()
@@ -486,20 +494,6 @@ public class GameBootstrap : MonoBehaviour
             tutorialManager?.TryShowTutorial("upgradeView");
         }
 
-        if (gameplayMusicInstance.isValid())
-        {
-            gameplayMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
-            gameplayMusicInstance.release();
-        }
-
-        FMOD.Studio.PLAYBACK_STATE upgradeState;
-        upgradeMusicInstance.getPlaybackState(out upgradeState);
-
-        if (upgradeState != FMOD.Studio.PLAYBACK_STATE.PLAYING && !upgradeMusicEvent.IsNull)
-        {
-            upgradeMusicInstance = FMODUnity.RuntimeManager.CreateInstance(upgradeMusicEvent);
-            upgradeMusicInstance.start();
-        }
     }
 
     string SettleRunGold(string summaryText)
