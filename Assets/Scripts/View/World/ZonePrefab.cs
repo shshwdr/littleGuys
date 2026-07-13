@@ -44,6 +44,8 @@ public class ZonePrefab : MonoBehaviour
     public Vector2 GetInputPosition() => ToVector2(inputPoint != null ? inputPoint : workPoint != null ? workPoint : transform);
     public Vector2 GetWorkPosition() => ToVector2(workPoint != null ? workPoint : transform);
     public Vector2 GetOutputPosition() => ToVector2(outputPoint != null ? outputPoint : workPoint != null ? workPoint : transform);
+
+    private FMOD.Studio.EventInstance workingSound;
     public IReadOnlyList<Vector2> GetOutputPositions()
     {
         RefreshOutputPositions();
@@ -180,6 +182,8 @@ public class ZonePrefab : MonoBehaviour
 
         isWorkSfxPlaying = true;
         // TODO: FMODUnity.RuntimeManager.CreateInstance(path) + start()
+        workingSound = FMODUnity.RuntimeManager.CreateInstance(path);
+        workingSound.start();
         Debug.Log($"[ZoneSFX] Start {zoneType}: {path}");
     }
 
@@ -191,6 +195,8 @@ public class ZonePrefab : MonoBehaviour
         string path = GetWorkSfxEvent();
         isWorkSfxPlaying = false;
         // TODO: stop + release EventInstance
+        workingSound.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
+        workingSound.release();
         Debug.Log($"[ZoneSFX] Stop {zoneType}: {path}");
     }
 

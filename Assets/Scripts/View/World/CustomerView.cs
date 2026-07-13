@@ -6,9 +6,15 @@ using UnityEngine.UI;
 
 public class CustomerView : MonoBehaviour
 {
+    static readonly Color NormalTextColor = new Color32(0xA0, 0x38, 0x3C, 255);
+
     [Header("Visual")]
     [SerializeField] Image bodyImage;
     [SerializeField, HideInInspector] SpriteRenderer bodyRenderer;
+    [SerializeField] GameObject bossBK;
+    [SerializeField] GameObject normalBK;
+    [SerializeField] GameObject normalImage;
+    [SerializeField] GameObject speedImage;
 
     [Header("UI")]
     [SerializeField] Image patienceFill;
@@ -42,6 +48,7 @@ public class CustomerView : MonoBehaviour
 
         EnsureBodyRenderer();
         EnsureUi();
+        ApplyCustomerStyle();
 
         moveTween?.Kill();
         if (animateFromEntry)
@@ -85,6 +92,31 @@ public class CustomerView : MonoBehaviour
 
         if (bodyRenderer != null)
             bodyRenderer.enabled = false;
+    }
+
+    void ApplyCustomerStyle()
+    {
+        if (customer == null)
+            return;
+
+        bool isBoss = customer.IsBoss;
+        bool isNormal = customer.CustomerTypeId == "normal";
+
+        if (bossBK != null)
+            bossBK.SetActive(isBoss);
+        if (normalBK != null)
+            normalBK.SetActive(!isBoss);
+
+        if (normalImage != null)
+            normalImage.SetActive(isNormal);
+        if (speedImage != null)
+            speedImage.SetActive(!isNormal);
+
+        Color textColor = isBoss ? Color.black : NormalTextColor;
+        if (orderText != null)
+            orderText.color = textColor;
+        if (descText != null)
+            descText.color = textColor;
     }
 
     void EnsureBodyImage()
