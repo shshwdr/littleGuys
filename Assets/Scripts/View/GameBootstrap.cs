@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UniRx;
 using UnityEngine;
@@ -31,6 +32,8 @@ public class GameBootstrap : MonoBehaviour
 
     private FMOD.Studio.EventInstance gameplayMusicInstance;
     private FMOD.Studio.EventInstance upgradeMusicInstance;
+    Coroutine gameplayMusicRoutine;
+    Coroutine upgradeMusicRoutine;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoCreate()
@@ -94,8 +97,8 @@ public class GameBootstrap : MonoBehaviour
         EnsureEventSystem();
         EnsureCamera();
         EnsureViewRoots();
-        ApplyGameplayMode();
         BuildGame();
+        ApplyGameplayMode();
     }
 
     void OnDestroy()
@@ -447,21 +450,10 @@ public class GameBootstrap : MonoBehaviour
 
         hudView?.SetUpgradeMode(false);
 
-        if (upgradeMusicInstance.isValid())
-        {
-            upgradeMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
-            upgradeMusicInstance.release();
-        }
-
-        // 2. Start Gameplay Music if not already playing
-        FMOD.Studio.PLAYBACK_STATE gameplayState;
-        gameplayMusicInstance.getPlaybackState(out gameplayState);
-
-        if (gameplayState != FMOD.Studio.PLAYBACK_STATE.PLAYING && !gameplayMusicEvent.IsNull)
-        {
-            gameplayMusicInstance = FMODUnity.RuntimeManager.CreateInstance(gameplayMusicEvent);
-            gameplayMusicInstance.start();
-        }
+        StopMusicRoutine(ref upgradeMusicRoutine);
+        StopMusicInstance(ref upgradeMusicInstance);
+        StopMusicRoutine(ref gameplayMusicRoutine);
+        gameplayMusicRoutine = StartCoroutine(StartGameplayMusicWhenReady());
     }
 
     public void EnterUpgradeMode(string summaryText)
@@ -486,20 +478,75 @@ public class GameBootstrap : MonoBehaviour
             tutorialManager?.TryShowTutorial("upgradeView");
         }
 
-        if (gameplayMusicInstance.isValid())
+        StopMusicRoutine(ref gameplayMusicRoutine);
+        StopMusicInstance(ref gameplayMusicInstance);
+        StopMusicRoutine(ref upgradeMusicRoutine);
+        upgradeMusicRoutine = StartCoroutine(StartUpgradeMusicWhenReady());
+    }
+
+    IEnumerator StartGameplayMusicWhenReady()
+    {
+        yield return WaitForFmodBanks();
+        TryStartMusic(gameplayMusicEvent, ref gameplayMusicInstance);
+        gameplayMusicRoutine = null;
+    }
+
+    IEnumerator StartUpgradeMusicWhenReady()
+    {
+        yield return WaitForFmodBanks();
+        TryStartMusic(upgradeMusicEvent, ref upgradeMusicInstance);
+        upgradeMusicRoutine = null;
+    }
+
+    static IEnumerator WaitForFmodBanks()
+    {
+        // WebGL loads banks asynchronously; music in Awake is often too early.
+        // SFX works because it plays later, after banks have finished loading.
+        while (!FMODUnity.RuntimeManager.IsInitialized || !FMODUnity.RuntimeManager.HaveAllBanksLoaded)
+            yield return null;
+    }
+
+    static void TryStartMusic(FMODUnity.EventReference musicEvent, ref FMOD.Studio.EventInstance instance)
+    {
+        if (musicEvent.IsNull)
+            return;
+
+        if (instance.isValid())
         {
-            gameplayMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
-            gameplayMusicInstance.release();
+            FMOD.Studio.PLAYBACK_STATE state;
+            instance.getPlaybackState(out state);
+            if (state == FMOD.Studio.PLAYBACK_STATE.PLAYING)
+                return;
+            StopMusicInstance(ref instance);
         }
 
-        FMOD.Studio.PLAYBACK_STATE upgradeState;
-        upgradeMusicInstance.getPlaybackState(out upgradeState);
-
-        if (upgradeState != FMOD.Studio.PLAYBACK_STATE.PLAYING && !upgradeMusicEvent.IsNull)
+        try
         {
-            upgradeMusicInstance = FMODUnity.RuntimeManager.CreateInstance(upgradeMusicEvent);
-            upgradeMusicInstance.start();
+            instance = FMODUnity.RuntimeManager.CreateInstance(musicEvent);
+            instance.start();
         }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[FMOD] Failed to start music: {e.Message}");
+        }
+    }
+
+    void StopMusicRoutine(ref Coroutine routine)
+    {
+        if (routine == null)
+            return;
+        StopCoroutine(routine);
+        routine = null;
+    }
+
+    static void StopMusicInstance(ref FMOD.Studio.EventInstance instance)
+    {
+        if (!instance.isValid())
+            return;
+
+        instance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
+        instance.release();
+        instance.clearHandle();
     }
 
     string SettleRunGold(string summaryText)

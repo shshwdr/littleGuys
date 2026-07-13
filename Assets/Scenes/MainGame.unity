@@ -4651,7 +4651,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 598aa88c1cbcb484f8bc715511f12d39, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  enableTutorial: 1
+  enableTutorial: 0
   tutorialView: {fileID: 706527031}
   tutorialText: {fileID: 1002246339}
   disableAllButton: {fileID: 822120894}
@@ -5980,6 +5980,10 @@ PrefabInstance:
       propertyPath: m_Color.r
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 639184045243553628, guid: 7dc8fa5e3b5716740a156afc65448e85, type: 3}
+      propertyPath: m_RaycastTarget
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1389370403947397741, guid: 7dc8fa5e3b5716740a156afc65448e85, type: 3}
       propertyPath: m_AnchorMax.x
       value: 0.5
@@ -6109,16 +6113,12 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3199303073557411654, guid: 7dc8fa5e3b5716740a156afc65448e85, type: 3}
-      propertyPath: m_PreserveAspect
-      value: 1
+      propertyPath: m_RaycastTarget
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3199303073557411654, guid: 7dc8fa5e3b5716740a156afc65448e85, type: 3}
-      propertyPath: m_RaycastTarget
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 639184045243553628, guid: 7dc8fa5e3b5716740a156afc65448e85, type: 3}
-      propertyPath: m_RaycastTarget
-      value: 0
+      propertyPath: m_PreserveAspect
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5380763931773542241, guid: 7dc8fa5e3b5716740a156afc65448e85, type: 3}
       propertyPath: m_Name
