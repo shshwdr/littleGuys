@@ -118,13 +118,12 @@ public class CustomerSacrificeService
             if (!worker.HasArrivedAtZone)
                 continue;
 
-            if (worker.SacrificeQueueIndex != 0)
-                continue;
+            if (worker.SacrificeQueueIndex != 0)               
+            continue;
 
-            worker.State = WorkerState.Sacrificing;
+            worker.State = WorkerState.Sacrificing;            
             worker.Position = target;
-            SacrificeReadyForPickup?.Invoke(worker);
-            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/Costumers/sfx_costumer_eats_2");
+            SacrificeReadyForPickup?.Invoke(worker);           
         }
     }
 

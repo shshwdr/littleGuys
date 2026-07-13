@@ -356,7 +356,7 @@ public class CustomerView : MonoBehaviour
         if (customer == null || customer.Effect != "eatMinion")
         {
             if (effectFill != null)
-                effectFill.gameObject.transform.parent.gameObject.SetActive(false);
+                effectFill.gameObject.transform.parent.gameObject.SetActive(false);            
             return;
         }
 

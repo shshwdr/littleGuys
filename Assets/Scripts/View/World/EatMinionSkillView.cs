@@ -18,6 +18,7 @@ public class EatMinionSkillView : MonoBehaviour
     {
         if (skillPrefab == null)
             skillPrefab = Resources.Load<GameObject>("skill/eatMinion");
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/Costumers/sfx_boss_skill");
 
         GameObject go;
         if (skillPrefab != null)
@@ -30,7 +31,7 @@ public class EatMinionSkillView : MonoBehaviour
         if (view == null)
             view = go.AddComponent<EatMinionSkillView>();
 
-        view.Run(customerPos, workerPos, workerView, workerFlyTarget, onComplete);
+        view.Run(customerPos, workerPos, workerView, workerFlyTarget, onComplete);             
         return view;
     }
 
