@@ -354,7 +354,20 @@ public class GameBootstrap : MonoBehaviour
         if (tutorialManager == null)
             Debug.LogWarning("TutorialManager not found in scene.");
         else
+        {
             tutorialManager.TryShowTutorial("start");
+            // 若 start 没在播（已完成/被跳过），立刻检查升级教程；再延后一帧兜底。
+            if (!tutorialManager.IsPlaying)
+                tutorialManager.TryShowPendingUpgradeTutorials();
+            StartCoroutine(DeferredUpgradeTutorials());
+        }
+    }
+
+    IEnumerator DeferredUpgradeTutorials()
+    {
+        yield return null;
+        if (tutorialManager != null && !tutorialManager.IsPlaying)
+            tutorialManager.TryShowPendingUpgradeTutorials();
     }
 
     void OnZoneStepCompleted(ZoneType zoneType)
@@ -453,6 +466,11 @@ public class GameBootstrap : MonoBehaviour
         StopMusicInstance(ref upgradeMusicInstance);
         StopGameplayMusic();
         gameplayMusicRoutine = StartCoroutine(StartGameplayMusicWhenReady());
+
+        // 从 upgrade 页回到主游戏时再检查一次。
+        if (tutorialManager != null && !tutorialManager.IsPlaying)
+            tutorialManager.TryShowPendingUpgradeTutorials();
+        StartCoroutine(DeferredUpgradeTutorials());
     }
 
     public void EnterUpgradeMode(string summaryText)

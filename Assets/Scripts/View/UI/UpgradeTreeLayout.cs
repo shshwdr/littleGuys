@@ -4,6 +4,8 @@ using UnityEngine;
 
 public static class UpgradeTreeLayout
 {
+    const int MaxPlacementSteps = 3;
+
     public enum Direction
     {
         Up = 0,
@@ -69,12 +71,11 @@ public static class UpgradeTreeLayout
             for (int i = 0; i < children.Count; i++)
             {
                 var child = children[i];
-                if (!TryPlaceChild(child, parentPos, placementDirections, i, nodeSpacing, positions, directionFromParent, pending, out string overlapReason))
+                if (!TryPlaceChild(child, parentPos, placementDirections, nodeSpacing, positions, directionFromParent, pending, out string overlapReason))
                 {
                     Debug.LogError(
                         $"UpgradeTreeLayout: node '{child.identifier}' could not be placed without overlap. {overlapReason} This node is skipped.");
                     hadSkippedNodes = true;
-                    continue;
                 }
             }
         }
@@ -86,7 +87,6 @@ public static class UpgradeTreeLayout
         UpgradeInfo child,
         Vector2 parentPos,
         Direction[] placementDirections,
-        int preferredIndex,
         float nodeSpacing,
         Dictionary<string, Vector2> positions,
         Dictionary<string, Direction> directionFromParent,
@@ -95,22 +95,27 @@ public static class UpgradeTreeLayout
     {
         failureReason = null;
 
-        for (int attempt = 0; attempt < placementDirections.Length; attempt++)
+        // Check every expansion direction in order (root: 4, others: same/left/right).
+        // Only fail after all directions (and farther steps along them) are occupied.
+        for (int step = 1; step <= MaxPlacementSteps; step++)
         {
-            int dirIndex = (preferredIndex + attempt) % placementDirections.Length;
-            var dir = placementDirections[dirIndex];
-            Vector2 childPos = parentPos + ToOffset(dir, nodeSpacing);
+            for (int d = 0; d < placementDirections.Length; d++)
+            {
+                var dir = placementDirections[d];
+                Vector2 childPos = parentPos + ToOffset(dir, nodeSpacing * step);
 
-            if (TryFindExistingKey(positions, childPos, out _))
-                continue;
+                if (TryFindExistingKey(positions, childPos, out _))
+                    continue;
 
-            positions[child.identifier] = childPos;
-            directionFromParent[child.identifier] = dir;
-            pending.Enqueue(child.identifier);
-            return true;
+                positions[child.identifier] = childPos;
+                directionFromParent[child.identifier] = dir;
+                pending.Enqueue(child.identifier);
+                return true;
+            }
         }
 
-        failureReason = $"All {placementDirections.Length} directions from parent are occupied.";
+        failureReason =
+            $"Tried all {placementDirections.Length} directions x {MaxPlacementSteps} steps; every slot is occupied.";
         return false;
     }
 

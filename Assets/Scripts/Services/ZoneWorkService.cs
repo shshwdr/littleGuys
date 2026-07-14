@@ -91,9 +91,11 @@ public class ZoneWorkService
             worker.PositionLocked = false;
 
         int outputCount = 1;
-        if (type == ZoneType.Chop && model.Config.doubleCutEnabled && Random.value < 0.5f)
+        if (type == ZoneType.Chop && model.Config.doubleCutChancePercent > 0
+            && Random.value < model.Config.doubleCutChancePercent / 100f)
             outputCount = 2;
-        else if (type == ZoneType.Cook && model.Config.doubleCookEnabled && Random.value < 0.5f)
+        else if (type == ZoneType.Cook && model.Config.doubleCookChancePercent > 0
+            && Random.value < model.Config.doubleCookChancePercent / 100f)
             outputCount = 2;
 
         for (int i = 0; i < outputCount; i++)

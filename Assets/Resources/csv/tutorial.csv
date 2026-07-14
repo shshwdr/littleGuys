@@ -3,15 +3,18 @@ start,You are now in charge of this 'Bakery'.,,,addDisableAllButtons,,,0,1,
 ,Customers will come in and order desserts.,,,,,3,0,1,
 ,Their patience will steadily decrease over time.,,patienceBar,,,,0,1,
 ,It is best to serve them before their patience drops to zero.,,fullInfo,,,,0,1,
-,Click here to assign a minion to chop fruit.,chopAdd,,,,4,0,1,
+,Click here to assign a Doughling to chop fruit.,chopAdd,,,,4,0,1,
 ,"That's too slow, let's add another one.",chopAdd,,,,,1,1,
-finishedChopping,"Now that they've finished chopping, you can move a minion to the plating zone. First, remove one from the chopping zone.",chopSub,,,,,0,1,
+finishedChopping,"Now that they've finished chopping, you can move a Doughling to the plating zone. First, remove one from the chopping zone.",chopSub,,,,,0,1,
 ,"Then, assign it to the plating zone.",plateAdd,,,,4,0,1,
-,These minions are quite slow. Try speeding things up here.,speed2,,,,,1,1,
-almostLose,"Time is running out. Try sacrificing a minion to restore a customer's patience. First, remove a minion from the chopping zone.",chopSub,,,,,,1,
+,These Doughlings are quite slow. Try speeding things up here.,speed2,,,,,1,1,
+almostLose,"Time is running out. Try sacrificing a Doughling to restore a customer's patience. First, remove a Doughling from the chopping zone.",chopSub,,,,,,1,
 ,"Then, click 'Sacrifice' on the customer with the lowest patience.",sacrificeButton,,,,,1,1,
 finishedServe,"There he goes. You could continue serving the next customer,",,,,,,0,1,
 ,"but since you are running low on minions,I highly suggest you forfeit this round.",endGameButton,,addDisableAllButtons,,,0,1,
 ,,gameoverContinue,,,,0.3,0,1,
 ,You can use your earned money to purchase upgrades and provide better service in the next round.,,,,,,0,1,
 ,"That is all you need to know. Good luck, and have fun!",,,,removeDisableAllButtons,,1,1,1
+splitMachine,Add Doughlings to Split Machine to split one into two.,,splitMachine,,,,1,2,2
+vegSoup,Now the new recipe requires using the Blender Machine,,vegSoup,,,,1,3,3
+stirFry,"This recipe uses Doughlings as ingredients, so don't be surprised if you see your doughlings keep decreasing in chopping zone",,,,,,1,4,4

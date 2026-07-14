@@ -153,6 +153,10 @@ namespace Sinbad
 //            Debug.LogError(m_path);
 //         }
 //#endif
+            // Unity/Editor 保存的 UTF-8 CSV 常带 BOM，会导致首列头变成 "\ufeffidentifier"，整列映射失败。
+            if (!string.IsNullOrEmpty(text) && text[0] == '\ufeff')
+                text = text.Substring(1);
+
             var splitFile = new string[] { "\r\n", "\r", "\n" };
             var lines = text.Split(splitFile, StringSplitOptions.None);
             int lineId = 0;

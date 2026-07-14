@@ -80,13 +80,13 @@ public static class MetaSaveService
                     config.dishPriceBonus += info.value * level;
                     break;
                 case "doubleCut":
-                    config.doubleCutEnabled = true;
+                    config.doubleCutChancePercent += info.value * level;
                     break;
                 case "doubleCook":
-                    config.doubleCookEnabled = true;
+                    config.doubleCookChancePercent += info.value * level;
                     break;
                 case "doubleSplit":
-                    config.doubleSplitEnabled = true;
+                    config.doubleSplitChancePercent += info.value * level;
                     break;
                 case "yummyMinion":
                     config.yummyMinionEnabled = true;
@@ -118,12 +118,15 @@ public static class MetaSaveService
 
             switch (info.effect)
             {
-                // 升级树中第一个/第二个解锁的菜谱分别是 dishIdentifier "1" 和 "2"。
+                // 升级树依次解锁 dishIdentifier "1" / "2" / "3"。
                 case "vegSoup":
                     UnlockDish(model, "1");
                     break;
                 case "stirFry":
                     UnlockDish(model, "2");
+                    break;
+                case "finalReceipt":
+                    UnlockDish(model, "3");
                     break;
                 case "splitMachine":
                     model.GetZone(ZoneType.Splitter).IsUnlocked = true;

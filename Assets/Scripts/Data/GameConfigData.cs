@@ -42,9 +42,9 @@ public class GameConfigData : ScriptableObject
     [Header("Economy")]
     public int customerTipsBonus = 0;
     public int dishPriceBonus = 0;
-    public bool doubleCutEnabled = false;
-    public bool doubleCookEnabled = false;
-    public bool doubleSplitEnabled = false;
+    public int doubleCutChancePercent = 0;
+    public int doubleCookChancePercent = 0;
+    public int doubleSplitChancePercent = 0;
     public bool yummyMinionEnabled = false;
     public int yummyMinionSatiety = 0;
     public int patienceFoodPercent = 0;

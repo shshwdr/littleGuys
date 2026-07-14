@@ -11,6 +11,14 @@ public class TutorialManager : MonoBehaviour
     const string TutorialSortingLayer = "tutorial";
     const int TutorialSortingOrder = 10000;
 
+    // 主游戏开局按顺序检查：已升级且对应教程未完成则弹出；完成后继续检查其余项。
+    static readonly string[] UpgradeTutorialIds =
+    {
+        "splitMachine",
+        "vegSoup",
+        "stirFry",
+    };
+
     [SerializeField] bool enableTutorial = true;
     [SerializeField] GameObject tutorialView;
     [SerializeField] TMP_Text tutorialText;
@@ -36,6 +44,7 @@ public class TutorialManager : MonoBehaviour
     string currentTutorialId;
 
     public bool IsTutorialCompleted => MetaSaveService.Load().TutorialCompleted;
+    public bool IsPlaying => runningRoutine != null;
 
     public void TryShowTutorial(string identifier)
     {
@@ -46,7 +55,8 @@ public class TutorialManager : MonoBehaviour
             return;
         }
 
-        if (IsTutorialCompleted)
+        // 升级解锁教程在主线 TutorialCompleted 之后仍需可触发。
+        if (!IsUpgradeTutorialId(identifier) && IsTutorialCompleted)
         {
             Debug.LogWarning($"Tutorial skipped '{identifier}': TutorialCompleted is true in save. Press S to reset meta save.");
             HideTutorialView();
@@ -66,9 +76,66 @@ public class TutorialManager : MonoBehaviour
         ShowTutorial(identifier);
     }
 
+    /// <summary>
+    /// 按顺序检查 splitMachine / vegSoup / stirFry：已升级且对应教程未完成则显示第一个匹配项。
+    /// </summary>
+    public void TryShowPendingUpgradeTutorials()
+    {
+        if (!enableTutorial)
+        {
+            Debug.LogWarning("Pending upgrade tutorials skipped: enableTutorial is false.");
+            return;
+        }
+
+        if (runningRoutine != null)
+        {
+            Debug.Log($"Pending upgrade tutorials skipped: already playing '{currentTutorialId}'.");
+            return;
+        }
+
+        ReloadFinishedGroups();
+        CSVLoader.Init();
+
+        var meta = MetaSaveService.Load();
+        for (int i = 0; i < UpgradeTutorialIds.Length; i++)
+        {
+            string id = UpgradeTutorialIds[i];
+            int level = meta.GetLevel(id);
+            if (level < 1)
+            {
+                Debug.Log($"Upgrade tutorial '{id}' skip: level={level}.");
+                continue;
+            }
+
+            // 只用 identifier 本身判断是否完成，避免旧版 finishGroup=2 在看不见时被一点击就记成完成。
+            if (finishedGroups.Contains(id))
+            {
+                Debug.Log($"Upgrade tutorial '{id}' skip: already finished.");
+                continue;
+            }
+
+            int rowCount = CSVLoader.GetTutorialRows(id).Count;
+            if (rowCount == 0)
+            {
+                Debug.LogWarning($"Upgrade tutorial '{id}' has 0 rows in tutorial.csv.");
+                continue;
+            }
+
+            Debug.Log($"Pending upgrade tutorial show '{id}' (level={level}, rows={rowCount}).");
+            ShowTutorial(id);
+            return;
+        }
+    }
+
     public void ShowTutorial(string identifier)
     {
-        if (!enableTutorial || IsTutorialCompleted)
+        if (!enableTutorial)
+        {
+            HideTutorialView();
+            return;
+        }
+
+        if (!IsUpgradeTutorialId(identifier) && IsTutorialCompleted)
         {
             HideTutorialView();
             return;
@@ -77,7 +144,15 @@ public class TutorialManager : MonoBehaviour
         ReloadFinishedGroups();
         CSVLoader.Init();
 
-        if (IsTutorialGroupFinished(identifier))
+        if (IsUpgradeTutorialId(identifier))
+        {
+            if (finishedGroups.Contains(identifier))
+            {
+                HideTutorialView();
+                return;
+            }
+        }
+        else if (IsTutorialGroupFinished(identifier))
         {
             HideTutorialView();
             return;
@@ -102,6 +177,20 @@ public class TutorialManager : MonoBehaviour
         resumeTimeScale = Time.timeScale > 0f ? Time.timeScale : 1f;
         currentTutorialId = identifier;
         runningRoutine = StartCoroutine(PlayTutorial(identifier));
+    }
+
+    static bool IsUpgradeTutorialId(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier))
+            return false;
+
+        for (int i = 0; i < UpgradeTutorialIds.Length; i++)
+        {
+            if (UpgradeTutorialIds[i] == identifier)
+                return true;
+        }
+
+        return false;
     }
 
     bool IsTutorialGroupFinished(string identifier)
@@ -198,6 +287,7 @@ public class TutorialManager : MonoBehaviour
         {
             FinishTutorial();
             runningRoutine = null;
+            TryShowPendingUpgradeTutorials();
             yield break;
         }
 
@@ -222,6 +312,10 @@ public class TutorialManager : MonoBehaviour
             if (!string.IsNullOrEmpty(row.finishGroup))
                 MarkGroupFinished(row.finishGroup);
 
+            // 升级教程额外用 identifier 记完成，避免依赖 CSV 里的数字 finishGroup。
+            if (IsUpgradeTutorialId(identifier))
+                MarkGroupFinished(identifier);
+
             if (row.isEnd != 0)
             {
                 if (currentTutorialId == "upgradeView")
@@ -244,17 +338,24 @@ public class TutorialManager : MonoBehaviour
 
         FinishTutorial();
         runningRoutine = null;
+        // 必须在清空 runningRoutine 之后再链式检查，否则会被正在播放的标记挡住。
+        TryShowPendingUpgradeTutorials();
     }
 
     void BeginLine(TutorialInfo row)
     {
         Time.timeScale = 0f;
+
+        // tutorialView 挂在 disableAllButton 下：必须先激活父节点，否则文字永远 invisible。
+        if (IsUpgradeTutorialId(currentTutorialId))
+            ExecuteLogic("addDisableAllButtons", true);
+        else
+            ExecuteLogic(row.logic, true);
+
         ShowTutorialView();
 
         if (tutorialText != null)
             tutorialText.text = row.text ?? string.Empty;
-
-        ExecuteLogic(row.logic, true);
 
         EnsureAllTutorialTargetsRegistered();
 
@@ -326,8 +427,12 @@ public class TutorialManager : MonoBehaviour
 
     void FinishTutorial()
     {
+        string finishedId = currentTutorialId;
+        bool wasUpgradeTutorial = IsUpgradeTutorialId(finishedId);
+
         ClearAllowedClickCanvas();
-        CleanupCurrentLineState(restoreTime: true, removeBlocker: false);
+        // 升级教程结束时必须关掉 disableAllButton，否则会一直挡操作。
+        CleanupCurrentLineState(restoreTime: true, removeBlocker: wasUpgradeTutorial);
         HideTutorialView();
         currentTutorialId = null;
 
