@@ -120,7 +120,19 @@ public class ZonePrefab : MonoBehaviour
         if (zoneType == ZoneType.Ingredient)
             return;
 
+        // Stop loops immediately on lose/victory; phase may stay Working after ticks pause.
+        if (model.State.Value != GameState.Playing)
+        {
+            SetWorkVisual(false);
+            return;
+        }
+
         SetWorkVisual(IsMachineWorking());
+    }
+
+    void OnDisable()
+    {
+        StopWorkSfx();
     }
 
     void OnDestroy()
@@ -194,9 +206,12 @@ public class ZonePrefab : MonoBehaviour
 
         string path = GetWorkSfxEvent();
         isWorkSfxPlaying = false;
-        // TODO: stop + release EventInstance
-        workingSound.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
-        workingSound.release();
+        if (workingSound.isValid())
+        {
+            workingSound.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
+            workingSound.release();
+            workingSound.clearHandle();
+        }
         Debug.Log($"[ZoneSFX] Stop {zoneType}: {path}");
     }
 

@@ -108,20 +108,9 @@ public class GameBootstrap : MonoBehaviour
         if (Instance == this)
             Instance = null;
 
-        if (gameplayMusicInstance.isValid())
-        {
-            gameplayMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
-            gameplayMusicInstance.release();
-        }
-
-        if (upgradeMusicInstance.isValid())
-        {
-            upgradeMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
-            upgradeMusicInstance.release();
-        }
-
-        if (Instance == this)
-            Instance = null;
+        StopGameplayMusic();
+        StopMusicRoutine(ref upgradeMusicRoutine);
+        StopMusicInstance(ref upgradeMusicInstance);
     }
 
     void BuildGame()
@@ -221,12 +210,22 @@ public class GameBootstrap : MonoBehaviour
             .AddTo(disposables);
 
         Observable.EveryUpdate()
+            .Where(_ => Input.GetKeyDown(KeyCode.F) && model.State.Value == GameState.Playing)
+            .Subscribe(_ => customerService.CheatSatisfyFirstCustomer())
+            .AddTo(disposables);
+
+        Observable.EveryUpdate()
             .Where(_ => Input.GetKeyDown(KeyCode.V))
             .Subscribe(_ => hudView?.ToggleSpeedPanelCheat())
             .AddTo(disposables);
 
         Observable.EveryUpdate()
             .Subscribe(_ => ClickDebugLogger.LogClickIfAny())
+            .AddTo(disposables);
+
+        model.State
+            .Where(state => state != GameState.Playing)
+            .Subscribe(_ => StopGameplayMusic())
             .AddTo(disposables);
     }
 
@@ -397,13 +396,6 @@ public class GameBootstrap : MonoBehaviour
     void OnHudPrimaryClicked()
     {
         FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/UI/sfx_ui_restart_buttom");
-        
-
-        if (gameplayMusicInstance.isValid())
-        {
-            gameplayMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
-            gameplayMusicInstance.release();
-        }
 
         if (upgradeViewRoot != null && upgradeViewRoot.activeSelf)
         {
@@ -413,7 +405,6 @@ public class GameBootstrap : MonoBehaviour
 
         if (model.State.Value == GameState.Playing)
             model.State.Value = GameState.GameOver;
-
     }
 
     void EnsureViewRoots()
@@ -460,7 +451,7 @@ public class GameBootstrap : MonoBehaviour
 
         StopMusicRoutine(ref upgradeMusicRoutine);
         StopMusicInstance(ref upgradeMusicInstance);
-        StopMusicRoutine(ref gameplayMusicRoutine);
+        StopGameplayMusic();
         gameplayMusicRoutine = StartCoroutine(StartGameplayMusicWhenReady());
     }
 
@@ -486,8 +477,7 @@ public class GameBootstrap : MonoBehaviour
             tutorialManager?.TryShowTutorial("upgradeView");
         }
 
-        StopMusicRoutine(ref gameplayMusicRoutine);
-        StopMusicInstance(ref gameplayMusicInstance);
+        StopGameplayMusic();
         StopMusicRoutine(ref upgradeMusicRoutine);
         upgradeMusicRoutine = StartCoroutine(StartUpgradeMusicWhenReady());
     }
@@ -555,6 +545,12 @@ public class GameBootstrap : MonoBehaviour
         instance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
         instance.release();
         instance.clearHandle();
+    }
+
+    void StopGameplayMusic()
+    {
+        StopMusicRoutine(ref gameplayMusicRoutine);
+        StopMusicInstance(ref gameplayMusicInstance);
     }
 
     string SettleRunGold(string summaryText)
@@ -728,6 +724,7 @@ public class GameBootstrap : MonoBehaviour
             onAtTarget: () =>
             {
                 customerHand.SetHandOpen(false);
+                FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/Costumers/sfx_costumer_eats");
                 onGrabbed?.Invoke();
             },
             onComplete: () =>

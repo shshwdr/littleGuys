@@ -40,6 +40,7 @@ public class CustomerEffectService
 
             customer.EffectTimer = 0f;
             customer.EffectProgress.Value = 0f;
+            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/Costumers/sfx_boss_skill");
             TryEatMinion(customer);
         }
     }

@@ -364,4 +364,18 @@ public class CustomerSpawnService
         model.SceneProgressChanged.Value = model.SceneProgress;
         SpawnBoss();
     }
+
+    public void CheatSatisfyFirstCustomer()
+    {
+        if (model.State.Value != GameState.Playing)
+            return;
+
+        var customer = GetFirstWaitingCustomer();
+        if (customer == null)
+            return;
+
+        int needed = customer.RequiredSatiety - customer.ReceivedSatiety;
+        if (needed > 0)
+            AddSatiety(customer, needed);
+    }
 }
