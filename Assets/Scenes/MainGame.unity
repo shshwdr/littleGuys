@@ -3777,25 +3777,25 @@ MonoBehaviour:
   fastSpeedButtonImage: {fileID: 0}
   normalSpeedSFX:
     Guid:
-      Data1: 0
-      Data2: 0
-      Data3: 0
-      Data4: 0
-    Path: 
+      Data1: -110549965
+      Data2: 1234980694
+      Data3: 77684669
+      Data4: -405437523
+    Path: event:/SFX/UI/sfx_ui_decrease_speed
   fastSpeedSFX:
     Guid:
-      Data1: 0
-      Data2: 0
-      Data3: 0
-      Data4: 0
-    Path: 
+      Data1: -378842001
+      Data2: 1304690587
+      Data3: -979334475
+      Data4: -809557904
+    Path: event:/SFX/UI/sfx_ui_increase_speed
   urgentMusicSFX:
     Guid:
-      Data1: 0
-      Data2: 0
-      Data3: 0
-      Data4: 0
-    Path: 
+      Data1: 1530882434
+      Data2: 1098301568
+      Data3: 1098098822
+      Data4: 1572960284
+    Path: event:/SFX/UI/sfx__ui_ending_timer_loop
 --- !u!1 &1144624169
 GameObject:
   m_ObjectHideFlags: 0
