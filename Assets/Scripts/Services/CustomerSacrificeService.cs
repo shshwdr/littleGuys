@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using UnityEngine;
+using FMODUnity;
 
 public class CustomerSacrificeService
 {
@@ -69,6 +70,8 @@ public class CustomerSacrificeService
         worker.State = WorkerState.WalkingToZone;
         RefreshSacrificeQueue();
         model.NotifyWorkerAssignmentChanged();
+
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/UI/sfx_ui_plus_buttom");
         return true;
     }
 
@@ -115,12 +118,12 @@ public class CustomerSacrificeService
             if (!worker.HasArrivedAtZone)
                 continue;
 
-            if (worker.SacrificeQueueIndex != 0)
-                continue;
+            if (worker.SacrificeQueueIndex != 0)               
+            continue;
 
-            worker.State = WorkerState.Sacrificing;
+            worker.State = WorkerState.Sacrificing;            
             worker.Position = target;
-            SacrificeReadyForPickup?.Invoke(worker);
+            SacrificeReadyForPickup?.Invoke(worker);           
         }
     }
 

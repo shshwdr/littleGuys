@@ -3765,6 +3765,27 @@ MonoBehaviour:
   pauseSpeedButtonImage: {fileID: 0}
   normalSpeedButtonImage: {fileID: 0}
   fastSpeedButtonImage: {fileID: 0}
+  normalSpeedSFX:
+    Guid:
+      Data1: -110549965
+      Data2: 1234980694
+      Data3: 77684669
+      Data4: -405437523
+    Path: event:/SFX/UI/sfx_ui_decrease_speed
+  fastSpeedSFX:
+    Guid:
+      Data1: -378842001
+      Data2: 1304690587
+      Data3: -979334475
+      Data4: -809557904
+    Path: event:/SFX/UI/sfx_ui_increase_speed
+  urgentMusicSFX:
+    Guid:
+      Data1: 1530882434
+      Data2: 1098301568
+      Data3: 1098098822
+      Data4: 1572960284
+    Path: event:/SFX/UI/sfx__ui_ending_timer_loop
 --- !u!1 &1144624169
 GameObject:
   m_ObjectHideFlags: 0
@@ -4655,6 +4676,13 @@ MonoBehaviour:
   tutorialView: {fileID: 706527031}
   tutorialText: {fileID: 1002246339}
   disableAllButton: {fileID: 822120894}
+  lineSkipSFX:
+    Guid:
+      Data1: -537412734
+      Data2: 1281453680
+      Data3: 184692138
+      Data4: 1284220480
+    Path: event:/SFX/UI/sfx_ui_skip_dialogue
 --- !u!114 &1589965682
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7201,6 +7229,10 @@ PrefabInstance:
       value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 3615793691376806715, guid: b1d5e53ff8f960e4a9c2703d3e5bc97e, type: 3}
+      propertyPath: bossSkillSFX.Path
+      value: event:/SFX/Costumers/sfx_boss_skill
+      objectReference: {fileID: 0}
+    - target: {fileID: 3615793691376806715, guid: b1d5e53ff8f960e4a9c2703d3e5bc97e, type: 3}
       propertyPath: bossHeadHoldDuration
       value: 2
       objectReference: {fileID: 0}
@@ -7211,6 +7243,22 @@ PrefabInstance:
     - target: {fileID: 3615793691376806715, guid: b1d5e53ff8f960e4a9c2703d3e5bc97e, type: 3}
       propertyPath: bossHeadReturnDuration
       value: 0.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 3615793691376806715, guid: b1d5e53ff8f960e4a9c2703d3e5bc97e, type: 3}
+      propertyPath: bossSkillSFX.Guid.Data1
+      value: 1444680014
+      objectReference: {fileID: 0}
+    - target: {fileID: 3615793691376806715, guid: b1d5e53ff8f960e4a9c2703d3e5bc97e, type: 3}
+      propertyPath: bossSkillSFX.Guid.Data2
+      value: 1206122622
+      objectReference: {fileID: 0}
+    - target: {fileID: 3615793691376806715, guid: b1d5e53ff8f960e4a9c2703d3e5bc97e, type: 3}
+      propertyPath: bossSkillSFX.Guid.Data3
+      value: 2073908409
+      objectReference: {fileID: 0}
+    - target: {fileID: 3615793691376806715, guid: b1d5e53ff8f960e4a9c2703d3e5bc97e, type: 3}
+      propertyPath: bossSkillSFX.Guid.Data4
+      value: -1646223324
       objectReference: {fileID: 0}
     - target: {fileID: 4347298877031316862, guid: b1d5e53ff8f960e4a9c2703d3e5bc97e, type: 3}
       propertyPath: m_Sprite

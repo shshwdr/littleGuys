@@ -70,7 +70,7 @@ public class CustomerView : MonoBehaviour
         {
             sacrificeButton.OnClickAsObservable()
                 .Subscribe(_ => sacrificeService.TryAssignWorker(customer))
-                .AddTo(viewDisposables);
+                .AddTo(viewDisposables);            
         }
 
         model.WorkerAssignmentChanged
@@ -356,7 +356,7 @@ public class CustomerView : MonoBehaviour
         if (customer == null || customer.Effect != "eatMinion")
         {
             if (effectFill != null)
-                effectFill.gameObject.transform.parent.gameObject.SetActive(false);
+                effectFill.gameObject.transform.parent.gameObject.SetActive(false);            
             return;
         }
 

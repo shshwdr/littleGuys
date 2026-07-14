@@ -33,6 +33,15 @@ public class GameHudView : MonoBehaviour
     [SerializeField] Image normalSpeedButtonImage;
     [SerializeField] Image fastSpeedButtonImage;
 
+    [SerializeField] private FMODUnity.EventReference normalSpeedSFX;
+    [SerializeField] private FMODUnity.EventReference fastSpeedSFX;
+
+    [Header("Ending Timer")]
+    [SerializeField] private FMODUnity.EventReference urgentMusicSFX;
+
+    private FMOD.Studio.EventInstance urgentMusicInstance;
+    private bool isUrgentMusicPlaying;
+
     bool speedPanelPermanentlyUnlocked;
     GameModel model;
     System.Action onPrimaryClicked;
@@ -158,6 +167,15 @@ public class GameHudView : MonoBehaviour
         timerFill.fillAmount = total > 0f ? Mathf.Clamp01(remainingSeconds / total) : 0f;
         int seconds = Mathf.CeilToInt(Mathf.Max(0f, remainingSeconds));
         timerLabel.text = $"{seconds}s";
+
+        if (remainingSeconds > 0f && remainingSeconds <= 15f)
+        {
+            StartUrgentMusic();
+        }
+        else
+        {
+            StopUrgentMusic();
+        }
     }
 
     public void SetUpgradeMode(bool isUpgradeMode)
@@ -218,6 +236,18 @@ public class GameHudView : MonoBehaviour
 
     void SetGameSpeed(float speed)
     {
+        if (!Mathf.Approximately(currentSpeed, speed))
+        {
+            if (Mathf.Approximately(speed, 1f) && !normalSpeedSFX.IsNull)
+            {
+                FMODUnity.RuntimeManager.PlayOneShot(normalSpeedSFX);
+            }
+            else if (Mathf.Approximately(speed, 2f) && !fastSpeedSFX.IsNull)
+            {
+                FMODUnity.RuntimeManager.PlayOneShot(fastSpeedSFX);
+            }
+        }
+
         currentSpeed = speed;
         Time.timeScale = speed;
         RefreshSpeedHighlights();
@@ -240,8 +270,35 @@ public class GameHudView : MonoBehaviour
             : new Color(0.25f, 0.45f, 0.8f, 1f);
     }
 
+    void StartUrgentMusic()
+    {
+        if (isUrgentMusicPlaying || urgentMusicSFX.IsNull)
+            return;
+
+        // Create the instance
+        urgentMusicInstance = FMODUnity.RuntimeManager.CreateInstance(urgentMusicSFX);
+        urgentMusicInstance.start();
+        isUrgentMusicPlaying = true;
+    }
+
+    void StopUrgentMusic()
+    {
+        if (!isUrgentMusicPlaying)
+            return;
+
+        urgentMusicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
+        urgentMusicInstance.release();
+        isUrgentMusicPlaying = false;
+    }
+
     void OnDestroy()
     {
         Time.timeScale = 1f;
+
+        if (isUrgentMusicPlaying)
+        {
+            urgentMusicInstance.stop(FMOD.Studio.STOP_MODE.IMMEDIATE);
+            urgentMusicInstance.release();
+        }
     }
 }

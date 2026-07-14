@@ -42,6 +42,7 @@ public class GameOverView : MonoBehaviour
                         break;
                     case GameState.LevelComplete:
                         ShowGameComplete();
+                        FMODUnity.RuntimeManager.PlayOneShot("event:/Music/mus_victory");
                         break;
                     default:
                         Hide();

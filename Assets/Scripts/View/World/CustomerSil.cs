@@ -21,6 +21,7 @@ public class CustomerSil : MonoBehaviour
     [SerializeField] SpriteRenderer bossHeadSprite;
     [SerializeField] Transform bossHeadStartPos;
     [SerializeField] Transform bossHeadEndPos;
+    [SerializeField] FMODUnity.EventReference bossSkillSFX;
 
     [Header("Timing")]
     [SerializeField] float doorMoveDuration = 0.45f;
@@ -318,6 +319,11 @@ public class CustomerSil : MonoBehaviour
         bossHeadSprite.sprite = sprite;
         head.localPosition = startLocal;
         SetBossHeadActive(true);
+
+        if (!bossSkillSFX.IsNull)
+        {
+            FMODUnity.RuntimeManager.PlayOneShot(bossSkillSFX, transform.position);
+        }
 
         yield return MoveLocalCoroutine(head, endLocal, bossHeadMoveDuration);
 

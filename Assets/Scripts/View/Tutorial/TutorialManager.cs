@@ -16,6 +16,9 @@ public class TutorialManager : MonoBehaviour
     [SerializeField] TMP_Text tutorialText;
     [SerializeField] GameObject disableAllButton;
 
+    [Header("Audio")]
+    [SerializeField] FMODUnity.EventReference lineSkipSFX;
+
     readonly Dictionary<string, Canvas> canvasByIdentifier = new Dictionary<string, Canvas>();
     readonly List<Canvas> activeHighlightCanvases = new List<Canvas>();
     readonly List<RaycastResult> raycastResults = new List<RaycastResult>();
@@ -207,6 +210,11 @@ public class TutorialManager : MonoBehaviour
             waitingForLineInput = true;
             yield return new WaitUntil(() => !waitingForClick);
             yield return null;
+
+            if (!lineSkipSFX.IsNull)
+            {
+                FMODUnity.RuntimeManager.PlayOneShot(lineSkipSFX);
+            }
 
             waitingForLineInput = false;
             EndLine();
