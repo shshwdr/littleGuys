@@ -69,7 +69,7 @@ MonoBehaviour:
   Path: Assets/Music/FMODBanks/Desktop/Master.bank
   Name: Master
   StudioPath: bank:/Master
-  lastModified: 639195601802230591
+  lastModified: 639195761504169765
   FileSizes: []
   Exists: 1
 --- !u!114 &-6251274942397022005
@@ -99,6 +99,33 @@ MonoBehaviour:
   MinDistance: 1
   MaxDistance: 20
   Length: 3500
+--- !u!114 &-6237650312620062526
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/Music/mus_victory
+  m_EditorClassIdentifier: 
+  Path: event:/Music/mus_victory
+  Guid:
+    Data1: -1907622219
+    Data2: 1209019029
+    Data3: 1678100876
+    Data4: -369967376
+  Banks:
+  - {fileID: -6551270312552215757}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 9882
 --- !u!114 &-5766239717445640795
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -207,33 +234,6 @@ MonoBehaviour:
   MinDistance: 1
   MaxDistance: 20
   Length: 2500
---- !u!114 &-3273325206083965107
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
-  m_Name: event:/SFX/Costumers/sfx_costumer_eats_2
-  m_EditorClassIdentifier: 
-  Path: event:/SFX/Costumers/sfx_costumer_eats_2
-  Guid:
-    Data1: 9647271
-    Data2: 1145110711
-    Data3: -804814460
-    Data4: 140357941
-  Banks:
-  - {fileID: -6551270312552215757}
-  IsStream: 0
-  Is3D: 0
-  IsOneShot: 1
-  Parameters: []
-  MinDistance: 1
-  MaxDistance: 20
-  Length: 5500
 --- !u!114 &-2812517784555261053
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -378,14 +378,14 @@ MonoBehaviour:
   - {fileID: -5766239717445640795}
   - {fileID: 2321763207753412604}
   - {fileID: -2812517784555261053}
-  - {fileID: -3273325206083965107}
+  - {fileID: -6237650312620062526}
   EditorParameters: []
   MasterBanks:
   - {fileID: -6551270312552215757}
   StringsBanks:
   - {fileID: 1195939438635644239}
   cacheVersion: 131860
-  cacheTime: 639195601802240653
+  cacheTime: 639195761504184948
   SerializableEventsDict:
   - key: event:/Music/mus_gameplay
     index: 0
@@ -427,7 +427,7 @@ MonoBehaviour:
     index: 18
   - key: event:/SFX/UI/sfx_ui_unlock_skill
     index: 19
-  - key: event:/SFX/Costumers/sfx_costumer_eats_2
+  - key: event:/Music/mus_victory
     index: 20
 --- !u!114 &472446217764471192
 MonoBehaviour:
@@ -498,10 +498,10 @@ MonoBehaviour:
   Path: Assets/Music/FMODBanks/Desktop/Master.strings.bank
   Name: Master.strings
   StudioPath: bank:/Master.strings
-  lastModified: 639195601802240653
+  lastModified: 639195761504184948
   FileSizes:
   - Name: 
-    Value: 1776
+    Value: 1770
   Exists: 1
 --- !u!114 &1426668892544459615
 MonoBehaviour:
