@@ -92,6 +92,14 @@ public class GameHudView : MonoBehaviour
             .Subscribe(time => RefreshTimerBar(time))
             .AddTo(disposables);
 
+        model.State
+            .Subscribe(state =>
+            {
+                if (state != GameState.Playing)
+                    StopUrgentMusic();
+            })
+            .AddTo(disposables);
+
         UpdateSceneDisplay(currentSceneId);
         SetUpgradeMode(false);
         SetGameSpeed(1f);
@@ -160,6 +168,7 @@ public class GameHudView : MonoBehaviour
         {
             timerFill.fillAmount = 0f;
             timerLabel.text = string.Empty;
+            StopUrgentMusic();
             return;
         }
 
@@ -181,6 +190,8 @@ public class GameHudView : MonoBehaviour
     public void SetUpgradeMode(bool isUpgradeMode)
     {
         upgradeMode = isUpgradeMode;
+        if (isUpgradeMode)
+            StopUrgentMusic();
 
         if (primaryButtonLabel != null)
             primaryButtonLabel.text = isUpgradeMode ? sceneStartLabel : "End Level";
